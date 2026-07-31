@@ -27,6 +27,9 @@ ApplicationWindow {
     readonly property color success: "#81B29A"
     readonly property color warning: "#D7A35D"
     readonly property color danger: "#D06A62"
+    property int workspacePage: 0
+    property string pendingSampleId: ""
+    property string pendingSampleName: ""
 
     component FlatButton: Button {
         id: control
@@ -179,7 +182,9 @@ ApplicationWindow {
             Text { text: launcher.statusMessage; color: window.textMuted; font.pixelSize: 11 }
             Item { Layout.fillWidth: true }
             Text {
-                text: launcher.projects.length + (launcher.projects.length === 1 ? " project" : " projects")
+                text: window.workspacePage === 0
+                      ? launcher.projects.length + (launcher.projects.length === 1 ? " project" : " projects")
+                      : launcher.samples.length + (launcher.samples.length === 1 ? " sample" : " samples")
                 color: "#7E6F69"
                 font.pixelSize: 11
             }
@@ -216,15 +221,31 @@ ApplicationWindow {
                     width: parent.width
                     height: 34
                     radius: 3
-                    color: window.accentDim
-                    border.color: "#754336"
+                    color: window.workspacePage === 0 ? window.accentDim : (projectsHover.containsMouse ? "#302622" : "transparent")
+                    border.color: window.workspacePage === 0 ? "#754336" : "transparent"
                     Row {
                         anchors.fill: parent
                         anchors.leftMargin: 10
                         spacing: 9
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "▦"; color: window.accent; font.pixelSize: 14 }
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Projects"; color: window.textMain; font.pixelSize: 12; font.bold: true }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "▦"; color: window.workspacePage === 0 ? window.accent : window.textMuted; font.pixelSize: 14 }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Projects"; color: window.workspacePage === 0 ? window.textMain : window.textMuted; font.pixelSize: 12; font.bold: window.workspacePage === 0 }
                     }
+                    MouseArea { id: projectsHover; anchors.fill: parent; hoverEnabled: true; onClicked: window.workspacePage = 0 }
+                }
+                Rectangle {
+                    width: parent.width
+                    height: 34
+                    radius: 3
+                    color: window.workspacePage === 1 ? window.accentDim : (samplesHover.containsMouse ? "#302622" : "transparent")
+                    border.color: window.workspacePage === 1 ? "#754336" : "transparent"
+                    Row {
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        spacing: 9
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "◇"; color: window.workspacePage === 1 ? window.accent : window.textMuted; font.pixelSize: 14 }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Samples"; color: window.workspacePage === 1 ? window.textMain : window.textMuted; font.pixelSize: 12; font.bold: window.workspacePage === 1 }
+                    }
+                    MouseArea { id: samplesHover; anchors.fill: parent; hoverEnabled: true; onClicked: window.workspacePage = 1 }
                 }
                 Rectangle {
                     width: parent.width
@@ -279,15 +300,25 @@ ApplicationWindow {
             }
         }
 
-        Rectangle {
+        StackLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: window.bg
+            currentIndex: window.workspacePage
 
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 18
-                spacing: 12
+            Item {
+                RowLayout {
+                    anchors.fill: parent
+                    spacing: 0
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        color: window.bg
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 18
+                            spacing: 12
 
                 RowLayout {
                     Layout.fillWidth: true
@@ -463,19 +494,19 @@ ApplicationWindow {
                         }
                     }
                 }
-            }
-        }
+                        }
+                    }
 
-        Rectangle {
-            Layout.fillHeight: true
-            Layout.preferredWidth: 308
-            color: window.chrome
-            border.color: window.lineSoft
+                    Rectangle {
+                        Layout.fillHeight: true
+                        Layout.preferredWidth: 308
+                        color: window.chrome
+                        border.color: window.lineSoft
 
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 16
-                spacing: 12
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 16
+                            spacing: 12
 
                 RowLayout {
                     Layout.fillWidth: true
@@ -588,6 +619,154 @@ ApplicationWindow {
                     enabled: launcher.selectedProject.name !== undefined
                     onClicked: removeDialog.open()
                 }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                color: window.bg
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 18
+                    spacing: 12
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            text: "Samples"
+                            color: window.textMain
+                            font.pixelSize: 21
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            text: "Create a writable project from an official Crown sample"
+                            color: window.textMuted
+                            font.pixelSize: 11
+                            Layout.alignment: Qt.AlignBottom
+                            bottomPadding: 2
+                        }
+                        Item { Layout.fillWidth: true }
+                        ToolButtonSmall { text: "↻"; onClicked: launcher.refresh() }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        color: window.panel
+                        border.color: window.lineSoft
+                        radius: 3
+
+                        GridView {
+                            id: sampleGrid
+                            anchors.fill: parent
+                            anchors.margins: 16
+                            clip: true
+                            cellWidth: Math.max(300, Math.floor(width / Math.max(1, Math.floor(width / 320))))
+                            cellHeight: 205
+                            model: launcher.samples
+                            boundsBehavior: Flickable.StopAtBounds
+                            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+                            delegate: Item {
+                                required property var modelData
+                                width: sampleGrid.cellWidth
+                                height: sampleGrid.cellHeight
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    anchors.rightMargin: 12
+                                    anchors.bottomMargin: 12
+                                    radius: 4
+                                    color: sampleMouse.containsMouse ? "#342824" : window.panelRaised
+                                    border.color: sampleMouse.containsMouse ? "#755044" : window.line
+
+                                    Rectangle {
+                                        anchors.left: parent.left
+                                        anchors.top: parent.top
+                                        anchors.bottom: parent.bottom
+                                        width: 3
+                                        radius: 2
+                                        color: window.accent
+                                    }
+
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.margins: 16
+                                        spacing: 7
+                                        Text {
+                                            text: (modelData.category || "SAMPLE").toUpperCase()
+                                            color: window.accent
+                                            font.pixelSize: 9
+                                            font.bold: true
+                                            font.letterSpacing: 1.1
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.displayName
+                                            color: window.textMain
+                                            font.pixelSize: 17
+                                            font.weight: Font.DemiBold
+                                            elide: Text.ElideRight
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            Layout.fillHeight: true
+                                            text: modelData.description
+                                            color: window.textMuted
+                                            font.pixelSize: 11
+                                            wrapMode: Text.WordWrap
+                                        }
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Text {
+                                                text: modelData.scripting ? "C#  •  Full project" : "Full project"
+                                                color: "#8E7D76"
+                                                font.pixelSize: 10
+                                            }
+                                            Item { Layout.fillWidth: true }
+                                            FlatButton {
+                                                text: "Create Copy"
+                                                accentButton: true
+                                                onClicked: {
+                                                    window.pendingSampleId = modelData.id
+                                                    window.pendingSampleName = modelData.displayName
+                                                    sampleDialog.open()
+                                                }
+                                            }
+                                        }
+                                    }
+                                    MouseArea {
+                                        id: sampleMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        acceptedButtons: Qt.NoButton
+                                    }
+                                }
+                            }
+
+                            Column {
+                                anchors.centerIn: parent
+                                visible: sampleGrid.count === 0
+                                spacing: 8
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: launcher.editorReady ? "No samples installed" : "Configure CrownEditor to discover samples"
+                                    color: window.textMain
+                                    font.pixelSize: 15
+                                    font.weight: Font.DemiBold
+                                }
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: "Samples are provided by the selected Editor installation."
+                                    color: window.textMuted
+                                    font.pixelSize: 11
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -688,6 +867,86 @@ ApplicationWindow {
                         onClicked: {
                             if (launcher.createProject(createName.text, createLocation.text, createTemplate.currentValue, createScripting.checked))
                                 createDialog.close()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Dialog {
+        id: sampleDialog
+        anchors.centerIn: Overlay.overlay
+        width: 510
+        height: 322
+        modal: true
+        padding: 0
+        closePolicy: Popup.CloseOnEscape
+        onOpened: {
+            sampleName.text = window.pendingSampleName
+            sampleLocation.text = launcher.defaultProjectDirectory
+            sampleName.forceActiveFocus()
+            sampleName.selectAll()
+        }
+        background: Rectangle { color: window.panel; border.color: window.line; radius: 5 }
+        contentItem: ColumnLayout {
+            spacing: 0
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 46
+                color: window.chrome
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 16
+                    anchors.rightMargin: 10
+                    Text { text: "Create Sample Copy"; color: window.textMain; font.pixelSize: 15; font.weight: Font.DemiBold }
+                    Item { Layout.fillWidth: true }
+                    ToolButtonSmall { text: "×"; onClicked: sampleDialog.close() }
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.margins: 18
+                spacing: 9
+                Text {
+                    Layout.fillWidth: true
+                    text: "The installed sample remains read-only. CrownLauncher will create a writable project with a new identity."
+                    color: window.textMuted
+                    font.pixelSize: 11
+                    wrapMode: Text.WordWrap
+                }
+                FieldLabel { text: "PROJECT NAME" }
+                CrownField { id: sampleName; Layout.fillWidth: true }
+                FieldLabel { text: "LOCATION" }
+                RowLayout {
+                    Layout.fillWidth: true
+                    CrownField { id: sampleLocation; Layout.fillWidth: true }
+                    FlatButton {
+                        text: "Browse"
+                        onClicked: {
+                            const selected = launcher.chooseProjectParent(sampleLocation.text)
+                            if (selected.length > 0)
+                                sampleLocation.text = selected
+                        }
+                    }
+                }
+                Item { Layout.fillHeight: true }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Item { Layout.fillWidth: true }
+                    FlatButton { text: "Cancel"; onClicked: sampleDialog.close() }
+                    FlatButton {
+                        text: launcher.editorReady ? "Create && Open" : "Create Copy"
+                        accentButton: true
+                        enabled: sampleName.text.trim().length > 0 && sampleLocation.text.length > 0
+                        onClicked: {
+                            if (launcher.createSampleProject(sampleName.text, sampleLocation.text, window.pendingSampleId)) {
+                                sampleDialog.close()
+                                window.workspacePage = 0
+                                if (launcher.editorReady)
+                                    launcher.openSelected()
+                            }
                         }
                     }
                 }

@@ -2,6 +2,7 @@
 
 #include "Core/PathUtils.h"
 #include "Core/ProjectCreator.h"
+#include "Core/ProjectSampleCreator.h"
 #include "Core/ProjectValidator.h"
 
 #include <QCoreApplication>
@@ -164,6 +165,38 @@ bool LauncherController::createProject(
     m_SelectedPath = PathToQString(created.descriptor->root);
     RebuildProjectList();
     SetStatus(QStringLiteral("Created %1").arg(created.descriptor->displayName));
+    return true;
+}
+
+bool LauncherController::createSampleProject(
+    const QString& displayName,
+    const QString& parentDirectory,
+    const QString& sampleId)
+{
+    const ProjectSampleInfo* sample = FindSample(sampleId);
+    if (sample == nullptr)
+    {
+        SetError(QStringLiteral("Choose a valid installed sample."));
+        return false;
+    }
+
+    const ProjectSampleCreateResult created = CreateProjectFromSample({
+        displayName,
+        QStringToPath(parentDirectory),
+        *sample,
+    });
+    if (!created.descriptor)
+    {
+        SetError(created.error);
+        return false;
+    }
+
+    m_Registry.AddOrUpdate(*created.descriptor);
+    SaveRegistry();
+    m_SelectedPath = PathToQString(created.descriptor->root);
+    RebuildProjectList();
+    SetStatus(QStringLiteral("Created %1 from %2")
+                  .arg(created.descriptor->displayName, sample->displayName));
     return true;
 }
 
@@ -367,6 +400,8 @@ void LauncherController::ReloadEditorInstall()
 
     m_Templates.clear();
     m_ProjectTemplates.clear();
+    m_SampleCatalog.clear();
+    m_Samples.clear();
     if (m_EditorInstall.IsValid())
     {
         const ProjectTemplateCatalogResult catalog =
@@ -384,8 +419,30 @@ void LauncherController::ReloadEditorInstall()
                 });
             }
         }
+
+        const ProjectSampleCatalogResult samples =
+            LoadProjectSampleCatalog(m_EditorInstall.samplesRoot);
+        if (samples.error.isEmpty())
+        {
+            m_SampleCatalog = samples.samples;
+            for (const ProjectSampleInfo& entry : m_SampleCatalog)
+            {
+                m_Samples.append(QVariantMap {
+                    { QStringLiteral("id"), entry.id },
+                    { QStringLiteral("displayName"), entry.displayName },
+                    { QStringLiteral("description"), entry.description },
+                    { QStringLiteral("category"), entry.category },
+                    { QStringLiteral("scripting"), entry.sourceProject.scripting.enabled },
+                });
+            }
+        }
+        else
+        {
+            SetError(samples.error);
+        }
     }
     emit projectTemplatesChanged();
+    emit samplesChanged();
     emit settingsChanged();
 }
 
@@ -481,6 +538,14 @@ const ProjectTemplateInfo* LauncherController::FindTemplate(const QString& templ
         m_Templates.begin(), m_Templates.end(),
         [&templateId](const ProjectTemplateInfo& entry) { return entry.id == templateId; });
     return found == m_Templates.end() ? nullptr : &*found;
+}
+
+const ProjectSampleInfo* LauncherController::FindSample(const QString& sampleId) const
+{
+    const auto found = std::find_if(
+        m_SampleCatalog.begin(), m_SampleCatalog.end(),
+        [&sampleId](const ProjectSampleInfo& entry) { return entry.id == sampleId; });
+    return found == m_SampleCatalog.end() ? nullptr : &*found;
 }
 
 std::optional<std::filesystem::path> LauncherController::SelectedRoot() const

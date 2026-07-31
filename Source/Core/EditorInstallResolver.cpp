@@ -57,6 +57,7 @@ EditorInstall BundledEditorInstallResolver::Resolve(
     install.executable = executable;
     install.root = executable.parent_path();
     install.templatesRoot = install.root / "Templates";
+    install.samplesRoot = install.root / "Samples";
     install.displayVersion = QStringLiteral("Current");
 
     QFile versionFile(PathToQString(install.root / "version.json"));

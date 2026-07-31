@@ -10,11 +10,13 @@ CrownLauncher 是与 CrownEngine 并列开发和发布的独立桌面应用。�
 ## 已实现
 
 - 创建 Empty / Blank 3D 项目，可选 C#；
+- 从当前 Editor 安装中的官方 Samples 创建具有新项目身份的可写副本；
 - 导入、搜索、固定、Relink、Reveal、Remove from List；
 - `.crownproject` 校验和原子 recent-project registry；
 - 紧凑棕色 Qt Quick 界面；
 - 通过 `--project <absolute-path>` 启动当前 CrownEditor；
-- Editor 安装解析接口已预留，界面暂不展示版本管理或下载入口。
+- Editor 安装解析接口已预留，界面暂不展示版本管理或下载入口；
+- Samples 页面当前提供随 Editor 部署的 LookDev Gallery，未来可接入下载 catalog。
 
 ## 构建
 

@@ -25,7 +25,8 @@ struct ProjectCreateResult
     QString error;
 };
 
+bool IsValidProjectDirectoryName(const QString& value);
+
 ProjectCreateResult CreateProject(const ProjectCreateRequest& request);
 
 } // namespace Crown::Launcher
-

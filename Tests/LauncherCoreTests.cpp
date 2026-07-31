@@ -2,6 +2,8 @@
 #include "Core/ProjectCreator.h"
 #include "Core/ProjectDescriptor.h"
 #include "Core/ProjectRegistry.h"
+#include "Core/ProjectSampleCatalog.h"
+#include "Core/ProjectSampleCreator.h"
 #include "Core/ProjectTemplateCatalog.h"
 #include "Core/ProjectValidator.h"
 
@@ -168,6 +170,77 @@ void CreatorTest(const std::filesystem::path& root)
     Check(!traversal.error.isEmpty(), "unsafe project name should be rejected");
 }
 
+void SampleCreatorTest(const std::filesystem::path& root)
+{
+    const std::filesystem::path samplesRoot = root / "Samples";
+    const std::filesystem::path sourceRoot = samplesRoot / "LookDev";
+    ProjectDescriptor source = MakeProject(sourceRoot, QStringLiteral("LookDev Gallery"));
+    source.scripting.enabled = true;
+    source.scripting.projectFile = "LookDev.Scripts.csproj";
+    source.scripting.assemblyName = QStringLiteral("LookDev.Scripts");
+    QString error;
+    Check(WriteProjectDescriptor(source, source.manifestPath, &error),
+          "sample source manifest should be writable");
+    const QJsonObject metadata {
+        { QStringLiteral("schemaVersion"), 1 },
+        { QStringLiteral("id"), QStringLiteral("lookdev-gallery") },
+        { QStringLiteral("displayName"), QStringLiteral("LookDev Gallery") },
+        { QStringLiteral("description"), QStringLiteral("Feature gallery") },
+        { QStringLiteral("category"), QStringLiteral("Engine Features") },
+    };
+    Check(WriteFile(sourceRoot / "sample.json", QJsonDocument(metadata).toJson()),
+          "sample metadata should be writable");
+    Check(WriteFile(sourceRoot / "LookDev.Scripts.csproj", QByteArrayLiteral("<Project />")),
+          "sample script project should be writable");
+    Check(WriteFile(sourceRoot / "Assets" / "Levels" / "LookDev.level", QByteArrayLiteral("sample-level")),
+          "sample authored content should be writable");
+    Check(WriteFile(sourceRoot / "Library" / "cache.ccd", QByteArrayLiteral("generated")),
+          "sample generated cache should be writable");
+    Check(WriteFile(sourceRoot / "CMakeLists.txt", QByteArrayLiteral("sample-build-only")),
+          "sample development CMake file should be writable");
+
+    const ProjectSampleCatalogResult catalog =
+        LoadProjectSampleCatalog(samplesRoot);
+    Check(catalog.error.isEmpty(), "sample catalog should load");
+    Check(catalog.samples.size() == 1, "sample catalog should contain one sample");
+    if (catalog.samples.empty())
+    {
+        return;
+    }
+
+    const std::filesystem::path projectsRoot = root / "CreatedSamples";
+    std::filesystem::create_directories(projectsRoot);
+    const ProjectSampleCreateResult created = CreateProjectFromSample({
+        QStringLiteral("My LookDev"),
+        projectsRoot,
+        catalog.samples.front(),
+    });
+    Check(created.error.isEmpty(), "sample project creation should succeed");
+    Check(created.descriptor.has_value(), "sample creation should return a descriptor");
+    if (!created.descriptor)
+    {
+        return;
+    }
+
+    Check(created.descriptor->projectId != source.projectId,
+          "sample copy should receive a new project identity");
+    Check(created.descriptor->displayName == QStringLiteral("My LookDev"),
+          "sample copy should use the requested display name");
+    Check(created.descriptor->scripting.assemblyName == QStringLiteral("LookDev.Scripts"),
+          "sample copy should preserve its script assembly contract");
+    Check(std::filesystem::is_regular_file(
+              created.descriptor->root / "Assets" / "Levels" / "LookDev.level"),
+          "sample authored content should be copied");
+    Check(!std::filesystem::exists(created.descriptor->root / "sample.json"),
+          "sample catalog metadata should not enter the user project");
+    Check(!std::filesystem::exists(created.descriptor->root / "Library"),
+          "sample generated Library should not enter the user project");
+    Check(!std::filesystem::exists(created.descriptor->root / "CMakeLists.txt"),
+          "sample development CMake file should not enter the user project");
+    Check(std::filesystem::is_regular_file(source.manifestPath),
+          "creating a copy must not modify the installed sample");
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -249,6 +322,7 @@ int main(int argc, char** argv)
     DescriptorAndValidationTest(root / "descriptor");
     RegistryTest(root / "registry");
     CreatorTest(root / "creator");
+    SampleCreatorTest(root / "sample");
 
     if (g_Failures == 0)
     {

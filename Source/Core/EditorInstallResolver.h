@@ -13,6 +13,7 @@ struct EditorInstall
     std::filesystem::path root;
     std::filesystem::path executable;
     std::filesystem::path templatesRoot;
+    std::filesystem::path samplesRoot;
     QString displayVersion;
     QString error;
 
@@ -43,4 +44,3 @@ private:
 };
 
 } // namespace Crown::Launcher
-

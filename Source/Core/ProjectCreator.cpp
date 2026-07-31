@@ -17,27 +17,6 @@ namespace Crown::Launcher
 namespace
 {
 
-bool IsValidProjectName(const QString& value)
-{
-    const QString name = value.trimmed();
-    if (name.isEmpty() || name == QStringLiteral(".") || name == QStringLiteral(".."))
-    {
-        return false;
-    }
-    static constexpr std::array<QChar, 9> invalid = {
-        QChar('<'), QChar('>'), QChar(':'), QChar('"'), QChar('/'),
-        QChar('\\'), QChar('|'), QChar('?'), QChar('*'),
-    };
-    for (const QChar character : invalid)
-    {
-        if (name.contains(character))
-        {
-            return false;
-        }
-    }
-    return !name.endsWith(QChar(' ')) && !name.endsWith(QChar('.'));
-}
-
 bool CopyTemplateTree(
     const ProjectTemplateInfo& projectTemplate,
     const std::filesystem::path& stagingRoot,
@@ -190,10 +169,27 @@ bool WriteScriptProject(
         "    <RootNamespace>%1</RootNamespace>\n"
         "    <Nullable>enable</Nullable>\n"
         "    <ImplicitUsings>enable</ImplicitUsings>\n"
+        "    <CrownManagedApiDirectory>$([System.IO.Path]::GetDirectoryName('$(CrownManagedApiPath)'))</CrownManagedApiDirectory>\n"
         "  </PropertyGroup>\n"
         "  <ItemGroup>\n"
         "    <Reference Include=\"Crown.Managed\">\n"
         "      <HintPath>$(CrownManagedApiPath)</HintPath>\n"
+        "      <Private>false</Private>\n"
+        "    </Reference>\n"
+        "    <Reference Include=\"Crown.Managed.Core\">\n"
+        "      <HintPath>$(CrownManagedApiDirectory)\\Crown.Managed.Core.dll</HintPath>\n"
+        "      <Private>false</Private>\n"
+        "    </Reference>\n"
+        "    <Reference Include=\"Crown.Managed.Rendering\">\n"
+        "      <HintPath>$(CrownManagedApiDirectory)\\Crown.Managed.Rendering.dll</HintPath>\n"
+        "      <Private>false</Private>\n"
+        "    </Reference>\n"
+        "    <Reference Include=\"Crown.Managed.Animation\">\n"
+        "      <HintPath>$(CrownManagedApiDirectory)\\Crown.Managed.Animation.dll</HintPath>\n"
+        "      <Private>false</Private>\n"
+        "    </Reference>\n"
+        "    <Reference Include=\"Crown.Managed.Physics\">\n"
+        "      <HintPath>$(CrownManagedApiDirectory)\\Crown.Managed.Physics.dll</HintPath>\n"
         "      <Private>false</Private>\n"
         "    </Reference>\n"
         "  </ItemGroup>\n"
@@ -217,11 +213,32 @@ bool WriteScriptProject(
 
 } // namespace
 
+bool IsValidProjectDirectoryName(const QString& value)
+{
+    const QString name = value.trimmed();
+    if (name.isEmpty() || name == QStringLiteral(".") || name == QStringLiteral(".."))
+    {
+        return false;
+    }
+    static constexpr std::array<QChar, 9> invalid = {
+        QChar('<'), QChar('>'), QChar(':'), QChar('"'), QChar('/'),
+        QChar('\\'), QChar('|'), QChar('?'), QChar('*'),
+    };
+    for (const QChar character : invalid)
+    {
+        if (name.contains(character))
+        {
+            return false;
+        }
+    }
+    return !name.endsWith(QChar(' ')) && !name.endsWith(QChar('.'));
+}
+
 ProjectCreateResult CreateProject(const ProjectCreateRequest& request)
 {
     ProjectCreateResult result;
     const QString name = request.displayName.trimmed();
-    if (!IsValidProjectName(name))
+    if (!IsValidProjectDirectoryName(name))
     {
         result.error = QStringLiteral("Project names cannot be empty or contain < > : \" / \\ | ? *.");
         return result;
@@ -349,4 +366,3 @@ ProjectCreateResult CreateProject(const ProjectCreateRequest& request)
 }
 
 } // namespace Crown::Launcher
-

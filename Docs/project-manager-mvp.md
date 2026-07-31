@@ -46,6 +46,7 @@ MVP 只支持一个本地 CrownEditor，不执行任何网络请求。多版本�
 D:/Code/Crown/
   CrownEngine/
   CrownLauncher/
+  CrownDemo/
 ```
 
 两个目录是独立 Git 仓库、独立 CMake 项目和独立发布产物。CrownLauncher 不通过
@@ -78,6 +79,7 @@ CrownLauncher 与 CrownEngine 只通过以下合同协作：
 3. Editor 发布目录中的 `version.json`；
 4. Launcher 与 Editor 的本地启动握手；
 5. Editor 安装目录中的项目模板目录。
+6. Editor 安装目录中的官方 Samples catalog。
 
 任何一方都不得依赖另一仓库的源文件路径、构建目录结构或 C++ ABI。
 
@@ -87,8 +89,8 @@ CrownLauncher 与 CrownEngine 只通过以下合同协作：
 相同，避免重命名显示名称时强制移动入口文件。
 
 ```text
-WarehouseStealth/
-  WarehouseStealth.crownproject
+CrownDemo/
+  CrownDemo.crownproject
   Assets/
   ProjectSettings/
   Library/
@@ -101,11 +103,11 @@ MVP schema：
 {
   "schemaVersion": 1,
   "projectId": "21bcbcd4-9eba-4c4a-aadc-725543fcad57",
-  "displayName": "WarehouseStealth",
+  "displayName": "Crown Demo",
   "scripting": {
     "enabled": true,
-    "projectFile": "WarehouseStealth.Scripts.csproj",
-    "assemblyName": "WarehouseStealth.Scripts"
+    "projectFile": "CrownDemo.Scripts.csproj",
+    "assemblyName": "CrownDemo.Scripts"
   }
 }
 ```
@@ -169,7 +171,7 @@ Launcher 只做打开前的轻量校验，不扫描或导入资产。
   "projects": [
     {
       "projectId": "21bcbcd4-9eba-4c4a-aadc-725543fcad57",
-      "path": "D:/Code/Crown/CrownEngine/Projects/WarehouseStealth",
+      "path": "D:/Code/Crown/CrownDemo",
       "pinned": true,
       "lastOpenedAt": "2026-07-31T10:42:00Z"
     }
@@ -195,6 +197,7 @@ struct EditorInstall
     std::filesystem::path root;
     std::filesystem::path executable;
     std::filesystem::path templatesRoot;
+    std::filesystem::path samplesRoot;
     std::string displayVersion;
 };
 
@@ -212,7 +215,7 @@ MVP 仅实现 `BundledEditorInstallResolver`：
 - 正式安装从 Launcher 安装布局定位 CrownEditor；
 - 本地开发从 Launcher Settings 中读取 Editor executable；
 - 不允许在代码中写死 `../CrownEngine/Build/...`；
-- 解析失败返回结构化错误，不回退到 WarehouseStealth 专用路径。
+- 解析失败返回结构化错误，不回退到任何仓库内项目路径。
 
 未来增加多版本时，只新增 versioned resolver、安装注册表和下载服务，项目打开用例不变。
 
@@ -252,6 +255,25 @@ MVP 模板：
 任何失败都只清理本次明确创建的 staging 目录，不触碰已有目标目录。
 
 模板路径和占位符必须防止 `..`、绝对路径、符号链接和目录逃逸。
+
+## 9.1 官方 Samples
+
+Samples 跟随 Editor 安装并作为完整只读项目提供：
+
+```text
+<EditorInstall>/Samples/LookDev/
+  sample.json
+  LookDev.crownproject
+  Assets/
+  ProjectSettings/
+```
+
+Launcher 的 Samples 页面读取 `sample.json`，但不会直接打开安装目录中的母版。
+`Create Copy` 使用同父目录 staging 复制 authored files，排除 `.git`、`Library`、
+`Logs`、`Build`、`bin`、`obj`、母版 manifest 和开发期 CMake 文件，然后生成新的
+`projectId` 与 `.crownproject`。生成项目经过普通项目校验后才原子发布并加入 registry。
+
+Samples 当前随安装包提供；以后增加下载只扩展 catalog 获取方式，不改变实例化合同。
 
 ## 10. Launcher UI
 
@@ -328,7 +350,7 @@ CrownEditor。
 Project Manager 的可用性依赖 CrownEngine 同步完成以下工作：
 
 - 删除 Qt Editor、CLI 和 `EditorCore` 中的 WarehouseStealth 默认项目；
-- 删除 LookDev 默认关卡；
+- 将 LookDev 从临时游戏项目迁移为 `Engine/Samples/LookDev` 官方样例；
 - `EditorCore` 接收经过校验的 project context；
 - 将重型构造过程拆为可报告进度的初始化事务；
 - 初始场景按以下顺序解析：
@@ -346,7 +368,8 @@ Project Manager 的可用性依赖 CrownEngine 同步完成以下工作：
 - 项目脚本输出到 `<Project>/Library/ScriptAssemblies/`；
 - `CMakeLists.txt` 不再要求为每个普通用户项目执行 `add_subdirectory`；
 - 无 `--project` 启动 CrownEditor 时转交 CrownLauncher，或返回明确错误；
-- WarehouseStealth 保留为 sample project，并增加合法 `.crownproject`。
+- 删除 Engine 仓库内的 WarehouseStealth 临时项目；LookDev Gallery 只通过 Samples
+  页面创建可写副本，不直接打开安装目录中的母版。
 
 ## 13. 建议代码结构
 

@@ -2,6 +2,7 @@
 
 #include "Core/EditorInstallResolver.h"
 #include "Core/ProjectRegistry.h"
+#include "Core/ProjectSampleCatalog.h"
 #include "Core/ProjectTemplateCatalog.h"
 
 #include <QObject>
@@ -22,6 +23,7 @@ class LauncherController final : public QObject
     Q_PROPERTY(QVariantList projects READ Projects NOTIFY projectsChanged)
     Q_PROPERTY(QVariantMap selectedProject READ SelectedProject NOTIFY selectedProjectChanged)
     Q_PROPERTY(QVariantList projectTemplates READ ProjectTemplates NOTIFY projectTemplatesChanged)
+    Q_PROPERTY(QVariantList samples READ Samples NOTIFY samplesChanged)
     Q_PROPERTY(QString searchText READ SearchText WRITE SetSearchText NOTIFY searchTextChanged)
     Q_PROPERTY(QString statusMessage READ StatusMessage NOTIFY statusMessageChanged)
     Q_PROPERTY(QString errorMessage READ ErrorMessage NOTIFY errorMessageChanged)
@@ -36,6 +38,7 @@ public:
     QVariantList Projects() const { return m_Projects; }
     QVariantMap SelectedProject() const { return m_SelectedProject; }
     QVariantList ProjectTemplates() const { return m_ProjectTemplates; }
+    QVariantList Samples() const { return m_Samples; }
     QString SearchText() const { return m_SearchText; }
     QString StatusMessage() const { return m_StatusMessage; }
     QString ErrorMessage() const { return m_ErrorMessage; }
@@ -53,6 +56,10 @@ public:
         const QString& parentDirectory,
         const QString& templateId,
         bool enableScripting);
+    Q_INVOKABLE bool createSampleProject(
+        const QString& displayName,
+        const QString& parentDirectory,
+        const QString& sampleId);
     Q_INVOKABLE void openSelected();
     Q_INVOKABLE void revealSelected();
     Q_INVOKABLE void removeSelected();
@@ -67,6 +74,7 @@ signals:
     void projectsChanged();
     void selectedProjectChanged();
     void projectTemplatesChanged();
+    void samplesChanged();
     void searchTextChanged();
     void statusMessageChanged();
     void errorMessageChanged();
@@ -80,14 +88,17 @@ private:
     void ReloadEditorInstall();
     void RebuildProjectList();
     const ProjectTemplateInfo* FindTemplate(const QString& templateId) const;
+    const ProjectSampleInfo* FindSample(const QString& sampleId) const;
     std::optional<std::filesystem::path> SelectedRoot() const;
 
     ProjectRegistry m_Registry;
     EditorInstall m_EditorInstall;
     std::vector<ProjectTemplateInfo> m_Templates;
+    std::vector<ProjectSampleInfo> m_SampleCatalog;
     QVariantList m_Projects;
     QVariantMap m_SelectedProject;
     QVariantList m_ProjectTemplates;
+    QVariantList m_Samples;
     QString m_SearchText;
     QString m_SelectedPath;
     QString m_StatusMessage;

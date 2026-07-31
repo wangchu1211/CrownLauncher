@@ -43,6 +43,10 @@ add_library(CrownLauncherCore STATIC
     Source/Core/ProjectDescriptor.h
     Source/Core/ProjectRegistry.cpp
     Source/Core/ProjectRegistry.h
+    Source/Core/ProjectSampleCatalog.cpp
+    Source/Core/ProjectSampleCatalog.h
+    Source/Core/ProjectSampleCreator.cpp
+    Source/Core/ProjectSampleCreator.h
     Source/Core/ProjectTemplateCatalog.cpp
     Source/Core/ProjectTemplateCatalog.h
     Source/Core/ProjectValidator.cpp
