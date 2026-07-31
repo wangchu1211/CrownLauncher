@@ -1,0 +1,6 @@
+/Build/
+/.vs/
+/.vscode/
+*.user
+*.suo
+

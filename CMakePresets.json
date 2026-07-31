@@ -1,0 +1,46 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 28,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "windows-vs2022",
+      "displayName": "Windows VS 2022",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/Build/windows-vs2022"
+    },
+    {
+      "name": "windows-vs2026",
+      "displayName": "Windows VS 2026",
+      "generator": "Visual Studio 18 2026",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/Build/windows-vs2026"
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-vs2022",
+      "configurePreset": "windows-vs2022"
+    },
+    {
+      "name": "windows-vs2026",
+      "configurePreset": "windows-vs2026"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "windows-vs2022",
+      "configurePreset": "windows-vs2022",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "windows-vs2026",
+      "configurePreset": "windows-vs2026",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}
