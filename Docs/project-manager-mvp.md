@@ -46,10 +46,11 @@ MVP 只支持一个本地 CrownEditor，不执行任何网络请求。多版本�
 D:/Code/Crown/
   CrownEngine/
   CrownLauncher/
-  CrownDemo/
+  CrownRTS/
 ```
 
-两个目录是独立 Git 仓库、独立 CMake 项目和独立发布产物。CrownLauncher 不通过
+三个目录是独立 Git 仓库和独立发布边界。CrownRTS 是正式游戏项目，通过稳定的项目
+合同使用引擎，不属于随 Editor 安装的 Samples。CrownLauncher 不通过
 `add_subdirectory(../CrownEngine)` 引入引擎，也不链接 CrownRuntime、Renderer、
 EditorCore、Vulkan 或 WebEngine。
 
@@ -89,8 +90,8 @@ CrownLauncher 与 CrownEngine 只通过以下合同协作：
 相同，避免重命名显示名称时强制移动入口文件。
 
 ```text
-CrownDemo/
-  CrownDemo.crownproject
+CrownRTS/
+  CrownRTS.crownproject
   Assets/
   ProjectSettings/
   Library/
@@ -103,11 +104,11 @@ MVP schema：
 {
   "schemaVersion": 1,
   "projectId": "21bcbcd4-9eba-4c4a-aadc-725543fcad57",
-  "displayName": "Crown Demo",
+  "displayName": "Crown RTS",
   "scripting": {
     "enabled": true,
-    "projectFile": "CrownDemo.Scripts.csproj",
-    "assemblyName": "CrownDemo.Scripts"
+    "projectFile": "CrownRTS.Scripts.csproj",
+    "assemblyName": "CrownRTS.Scripts"
   }
 }
 ```
@@ -171,7 +172,7 @@ Launcher 只做打开前的轻量校验，不扫描或导入资产。
   "projects": [
     {
       "projectId": "21bcbcd4-9eba-4c4a-aadc-725543fcad57",
-      "path": "D:/Code/Crown/CrownDemo",
+      "path": "D:/Code/Crown/CrownRTS",
       "pinned": true,
       "lastOpenedAt": "2026-07-31T10:42:00Z"
     }
