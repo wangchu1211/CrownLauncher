@@ -2,7 +2,7 @@
 
 文档类型：Design
 
-状态：MVP 已落地；多版本与下载延期
+状态：MVP 已落地并迁移至 Electron；多版本与下载延期
 
 日期：2026-07-31
 
@@ -62,14 +62,16 @@ CrownLauncher.exe
   -> CrownEditor owns engine, asset, script and scene startup
 ```
 
-建议依赖：
+当前 UI 与桌面壳依赖：
 
-- Qt Core；
-- Qt Gui；
-- Qt Quick；
-- Qt Quick Controls 2；
-- Qt Network，仅用于本地 `QLocalServer` / `QLocalSocket` 启动握手；
-- nlohmann/json 或等价的轻量 JSON 解析能力。
+- Electron：窗口、原生文件对话框、Shell 和进程启动；
+- TypeScript：跨进程合同和领域实现；
+- React + Vite：Renderer UI 与生产构建；
+- Node.js 标准库：本地文件、JSON 和原子事务；
+- Vitest：项目合同与创建事务测试。
+
+Renderer 必须保持 sandbox 和 context isolation，且只能通过白名单 preload API 使用桌面
+能力。具体边界见 `Docs/architecture/electron-launcher.md`。
 
 ## 4. 跨仓库稳定合同
 
@@ -278,38 +280,46 @@ Samples 当前随安装包提供；以后增加下载只扩展 catalog 获取方
 
 ## 10. Launcher UI
 
-采用已确认的紧凑暖色工作台风格：
+采用 Electron Web UI，并保持与 CrownEditor 同源的紧凑暖色工作台风格，但不复刻
+Editor 的文档标签页：
 
 - 暖黑和紫棕黑面层；
 - 珊瑚橙 `#F08363` 只用于克制的主操作或焦点；
-- 浏览型控件使用紧凑行高和直角几何；
+- 间距以 4 / 8 / 12 / 16 px 为主，浏览型控件使用紧凑行高和近直角几何；
 - 项目列表是连续表格，不使用宽松 SaaS 卡片；
 - 选中项使用中性深色填充，不使用大面积高饱和色。
+- 使用一条无标签页语义的原生窗口标题栏，只出现一个 Crown 图标和
+  `Crown Launcher`；
+- 不保留全局状态栏。完成提示保持在当前上下文，错误使用临时浮层。
 
 主页面：
 
 ```text
-Projects
-  Search                       New Project  Open Project
+Projects               Crown RTS
+  Search     Import  New Project
 
-  Project                 Last Opened       Status
-  WarehouseStealth        Just now          Ready
-  PhysicsSandbox          Yesterday         Ready
-  RenderingLab            --                Relink
+  Project                         Last Opened
+  [pin] Crown RTS                 Just now
 
-  Selected project details
-    path / last scene / modified
-    Open / Show in Explorer / Remove from List
+  Settings                General
+                          Location / Show in Explorer
+                          Scripting
+                          Open in CrownEditor
 ```
 
-MVP 左侧只显示 `Projects` 和 `Settings`。不要显示不可用的 Versions、Downloads 或
-账号入口。
+`Projects` 与 `Samples` 位于左侧顶部，`Settings` 固定在左下角。右侧只展示打开决策
+所需的项目名称、位置和脚本状态；正常项目不重复展示 `Ready`，只有 `Missing` / `Invalid`
+项目才在列表和详情中出现异常提示。固定项目在名称前常驻显示珊瑚橙图钉，并排在未固定
+项目之前；未固定项目仅在选中或悬停时显示灰色图钉按钮，单击按钮直接固定或取消固定，
+Tooltip 使用 `Pin to Top` / `Unpin from Top` 明确说明排序效果。移出列表收进 `...`
+菜单，重新定位只在 Missing 状态下作为主操作出现。
+不要显示 Current Editor 卡片、不可用的 Versions / Downloads 或账号入口。Open
+按钮固定在右侧底部，但窗口底部不再预留额外状态栏或空白带。
 
 交互：
 
 - 单击选择并更新详情；
-- 双击 Ready 项目直接打开；
-- Enter 打开选中项目；
+- 双击 Ready 项目、Enter 和右侧 Open 按钮复用同一打开动作；
 - Missing 项目的主操作变为 Relink；
 - Invalid 项目的主操作变为 View Error；
 - Delete 不直接移除，必须经过明确确认；
@@ -325,7 +335,7 @@ CrownEditor.exe --project D:/Projects/MyGame
 
 不得通过拼接未经转义的 shell command line 启动。
 
-本地握手建议使用 `QLocalServer` / `QLocalSocket`，每次启动使用随机 nonce：
+本地握手由 Main process 的平台适配层实现，每次启动使用随机 nonce：
 
 ```json
 {"type":"BootstrapStarted","projectId":"..."}
@@ -372,38 +382,36 @@ Project Manager 的可用性依赖 CrownEngine 同步完成以下工作：
 - 删除 Engine 仓库内的 WarehouseStealth 临时项目；LookDev Gallery 只通过 Samples
   页面创建可写副本，不直接打开安装目录中的母版。
 
-## 13. 建议代码结构
+## 13. 代码结构
 
 ```text
 CrownLauncher/
-  CMakeLists.txt
-  CMakePresets.json
-  Source/
-    Core/
-      ProjectDescriptor.*
-      ProjectValidator.*
-      ProjectRegistry.*
-      ProjectTemplateCatalog.*
-      ProjectCreator.*
-      EditorInstallResolver.*
-      EditorLaunchService.*
-    Qt/
-      CrownLauncherMain.cpp
-      QtLauncherController.*
-      QtLauncherSettings.*
-      Quick/
-        Launcher.qml
-        ProjectsPage.qml
-        NewProjectDialog.qml
-        SettingsPage.qml
+  package.json
+  src/
+    shared/
+      contracts.ts
+    main/
+      core/
+        projectDescriptor.ts
+        projectRegistry.ts
+        projectCreator.ts
+        catalogs.ts
+        editorInstall.ts
+      launcherService.ts
+      ipc.ts
+      index.ts
+    preload/
+      index.ts
+    renderer/
+      App.tsx
+      styles.css
   Resources/
-    Icons/
-  Tests/
+  tests/
   Docs/
 ```
 
-Core 层不读取 QML 对象，也不弹 Qt 对话框。Qt 层负责文件选择、确认、原生进程和本地
-IPC 适配。
+Core 层不依赖 Electron 或 React。Main process 负责文件选择、原生进程和本地 IPC；
+Renderer 不读取 Node API，也不持有任意 IPC channel。
 
 ## 14. 实施阶段
 
@@ -507,6 +515,18 @@ IPC 适配。
 - Launcher Core 测试、Editor project-context 测试和 CrownEngine smoke 107/107 通过；
 - 已从 Launcher 实际启动仓库外的 Blank 3D + C# 项目并完成整窗截图。
 
-基于 `QLocalServer` 的 Ready/Failed/timeout 细粒度握手与 100%/125% DPI 扩展矩阵作为
+基于本地 IPC 的 Ready/Failed/timeout 细粒度握手与 100%/125% DPI 扩展矩阵作为
 后续启动体验加固项，不影响当前 Launcher 保持可见、Editor 立即启动失败可报告的 MVP
 行为。
+
+## 19. 2026-08-01 Electron 迁移记录
+
+- Qt Quick 应用壳和 C++ Launcher Core 已由 Electron、TypeScript 和 React 实现替换；
+- `%LOCALAPPDATA%/CrownEngine/CrownLauncher/projects.json` 保持 schema 1，已有项目列表、
+  pin 和最近打开时间无需转换；
+- 首次启动把旧 Qt `QSettings` 中的 Editor 路径和默认项目目录迁移到 `settings.json`；
+- Renderer 启用 sandbox、context isolation、严格 CSP，Preload 仅暴露类型化能力；
+- 项目校验、registry、模板创建和 Sample 副本事务具有 Node 领域测试；
+- Windows 发布由 electron-builder 生成，`appId` 和 Launcher 图标保持不变；
+- UI 保留 Projects / Samples 左侧导航、Settings 左下角、紧凑项目表、按需 pin 按钮、
+  右侧详情和无全局状态栏设计。

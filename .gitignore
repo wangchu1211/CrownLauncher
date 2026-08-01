@@ -1,6 +1,8 @@
 /Build/
+/dist/
+/node_modules/
+/.vite/
 /.vs/
 /.vscode/
 *.user
 *.suo
-
