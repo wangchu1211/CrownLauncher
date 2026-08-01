@@ -387,11 +387,11 @@ Project Manager 的可用性依赖 CrownEngine 同步完成以下工作：
 ```text
 CrownLauncher/
   package.json
-  src/
-    shared/
+  Source/
+    Shared/
       contracts.ts
-    main/
-      core/
+    Main/
+      Core/
         projectDescriptor.ts
         projectRegistry.ts
         projectCreator.ts
@@ -400,9 +400,9 @@ CrownLauncher/
       launcherService.ts
       ipc.ts
       index.ts
-    preload/
+    Preload/
       index.ts
-    renderer/
+    Renderer/
       App.tsx
       styles.css
   Resources/

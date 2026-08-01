@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { CrownHost } from "../shared/contracts";
+import type { CrownHost } from "../Shared/contracts";
 
 const crownHost: CrownHost = {
   launcher: {

@@ -4,9 +4,10 @@
   "private": true,
   "author": "CrownEngine",
   "description": "Crown project manager and desktop launcher",
-  "main": "dist/main/index.js",
+  "main": "dist/Main/index.js",
   "scripts": {
-    "build": "npm run typecheck && npm run build:main && npm run build:renderer",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && npm run typecheck && npm run build:main && npm run build:renderer",
     "build:main": "tsc -p tsconfig.main.json",
     "build:renderer": "vite build",
     "dev": "npm run build && electron .",

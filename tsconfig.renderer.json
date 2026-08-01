@@ -8,5 +8,5 @@
     "noEmit": true,
     "types": ["vite/client"]
   },
-  "include": ["src/renderer/**/*.ts", "src/renderer/**/*.tsx", "src/shared/**/*.ts"]
+  "include": ["Source/Renderer/**/*.ts", "Source/Renderer/**/*.tsx", "Source/Shared/**/*.ts"]
 }

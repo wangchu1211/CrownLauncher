@@ -1,5 +1,5 @@
 import { BrowserWindow, dialog, ipcMain, shell } from "electron";
-import type { CreateProjectInput, CreateSampleInput, Result, SaveSettingsInput } from "../shared/contracts";
+import type { CreateProjectInput, CreateSampleInput, Result, SaveSettingsInput } from "../Shared/contracts";
 import { LauncherService } from "./launcherService";
 
 function result<T>(operation: () => Promise<T>): Promise<Result<T>> {

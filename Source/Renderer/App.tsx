@@ -6,7 +6,7 @@ import type {
   ProjectSampleView,
   ProjectView,
   Result,
-} from "../shared/contracts";
+} from "../Shared/contracts";
 import {
   ChevronIcon,
   CloseIcon,

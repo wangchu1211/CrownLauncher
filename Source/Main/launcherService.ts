@@ -7,13 +7,13 @@ import type {
   LauncherSnapshot,
   ProjectView,
   SaveSettingsInput,
-} from "../shared/contracts";
-import { loadProjectSamples, loadProjectTemplates, type ProjectSampleInfo, type ProjectTemplateInfo } from "./core/catalogs";
-import { resolveEditorInstall, type EditorInstall } from "./core/editorInstall";
-import { createProject, createProjectFromSample } from "./core/projectCreator";
-import { inspectProject } from "./core/projectDescriptor";
-import { ProjectRegistry, type ProjectRecord } from "./core/projectRegistry";
-import { SettingsStore } from "./core/settingsStore";
+} from "../Shared/contracts";
+import { loadProjectSamples, loadProjectTemplates, type ProjectSampleInfo, type ProjectTemplateInfo } from "./Core/catalogs";
+import { resolveEditorInstall, type EditorInstall } from "./Core/editorInstall";
+import { createProject, createProjectFromSample } from "./Core/projectCreator";
+import { inspectProject } from "./Core/projectDescriptor";
+import { ProjectRegistry, type ProjectRecord } from "./Core/projectRegistry";
+import { SettingsStore } from "./Core/settingsStore";
 
 function lastOpenedLabel(value: string): string {
   if (!value) {

@@ -22,7 +22,7 @@ function configDirectory(): string {
 }
 
 function registerAppProtocol(): void {
-  const rendererRoot = path.join(app.getAppPath(), "dist", "renderer");
+  const rendererRoot = path.join(app.getAppPath(), "dist", "Renderer");
   protocol.handle("crown", (request) => {
     const url = new URL(request.url);
     const relative = decodeURIComponent(url.pathname).replace(/^\/+/, "") || "index.html";
@@ -48,7 +48,7 @@ async function createWindow(): Promise<void> {
     icon: path.join(app.getAppPath(), "Resources", "app-icon.png"),
     autoHideMenuBar: true,
     webPreferences: {
-      preload: path.join(__dirname, "..", "preload", "index.js"),
+      preload: path.join(__dirname, "..", "Preload", "index.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,

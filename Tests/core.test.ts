@@ -3,11 +3,11 @@ import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ProjectSampleInfo, ProjectTemplateInfo } from "../src/main/core/catalogs";
-import { createProject, createProjectFromSample, isValidProjectDirectoryName } from "../src/main/core/projectCreator";
-import { inspectProject, writeProjectDescriptor, type ProjectDescriptor } from "../src/main/core/projectDescriptor";
-import { ProjectRegistry } from "../src/main/core/projectRegistry";
-import { isSafeRelativePath } from "../src/main/core/paths";
+import type { ProjectSampleInfo, ProjectTemplateInfo } from "../Source/Main/Core/catalogs";
+import { createProject, createProjectFromSample, isValidProjectDirectoryName } from "../Source/Main/Core/projectCreator";
+import { inspectProject, writeProjectDescriptor, type ProjectDescriptor } from "../Source/Main/Core/projectDescriptor";
+import { ProjectRegistry } from "../Source/Main/Core/projectRegistry";
+import { isSafeRelativePath } from "../Source/Main/Core/paths";
 
 const temporaryRoots: string[] = [];
 

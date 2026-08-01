@@ -1,4 +1,4 @@
-import type { CrownHost } from "../shared/contracts";
+import type { CrownHost } from "../Shared/contracts";
 
 declare global {
   interface Window {
