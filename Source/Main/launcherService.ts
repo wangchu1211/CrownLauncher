@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { mkdir } from "node:fs/promises";
+import { homedir } from "node:os";
 import path from "node:path";
 import type {
   CreateProjectInput,
@@ -9,11 +10,14 @@ import type {
   SaveSettingsInput,
 } from "../Shared/contracts";
 import { loadProjectSamples, loadProjectTemplates, type ProjectSampleInfo, type ProjectTemplateInfo } from "./Core/catalogs";
+import { calculateDirectorySize } from "./Core/directorySize";
+import { buildEditorLaunchArguments } from "./Core/editorLaunch";
 import { resolveEditorInstall, type EditorInstall } from "./Core/editorInstall";
 import { createProject, createProjectFromSample } from "./Core/projectCreator";
 import { inspectProject } from "./Core/projectDescriptor";
 import { ProjectRegistry, type ProjectRecord } from "./Core/projectRegistry";
 import { SettingsStore } from "./Core/settingsStore";
+import { isPathWithin } from "./Core/paths";
 
 function lastOpenedLabel(value: string): string {
   if (!value) {
@@ -50,7 +54,7 @@ export class LauncherService {
   private samples: ProjectSampleInfo[] = [];
 
   public constructor(
-    configDirectory: string,
+    private readonly configDirectory: string,
     private readonly applicationDirectory: string,
     registryOverride = "",
   ) {
@@ -143,12 +147,14 @@ export class LauncherService {
     await this.registry.save();
     const view = await this.toProjectView(record);
     if (input.openAfterCreate && !this.editor.error) {
-      await this.openProject(view.path);
+      // A fresh sample copy has no Editor session state. Open the catalog's
+      // authored entry level instead of relying on generic project fallback.
+      await this.openProject(view.path, sample.startupLevel);
     }
     return view;
   }
 
-  public async openProject(projectRoot: string): Promise<void> {
+  public async openProject(projectRoot: string, startupLevel = ""): Promise<void> {
     const inspection = await inspectProject(projectRoot);
     if (inspection.health !== "ready") {
       throw new Error(inspection.message);
@@ -158,12 +164,11 @@ export class LauncherService {
       throw new Error(this.editor.error);
     }
     await new Promise<void>((resolve, reject) => {
-      const child = spawn(this.editor.executable, [
-        "--project",
+      const child = spawn(this.editor.executable, buildEditorLaunchArguments(
         inspection.descriptor.root,
-        "--launcher-pid",
-        String(process.pid),
-      ], {
+        process.pid,
+        startupLevel,
+      ), {
         cwd: inspection.descriptor.root,
         detached: true,
         stdio: "ignore",
@@ -183,6 +188,55 @@ export class LauncherService {
     if (this.registry.remove(projectRoot)) {
       await this.registry.save();
     }
+  }
+
+  public async getProjectSize(projectRoot: string): Promise<number> {
+    const record = this.registry.getRecord(projectRoot);
+    if (!record) {
+      throw new Error("The project is no longer registered.");
+    }
+    return calculateDirectorySize(record.path);
+  }
+
+  public async deleteProject(
+    projectRoot: string,
+    deleteDirectory: (directory: string) => Promise<void>,
+  ): Promise<void> {
+    const record = this.registry.getRecord(projectRoot);
+    if (!record) {
+      throw new Error("The project is no longer registered.");
+    }
+    const inspection = await inspectProject(record.path);
+    if (inspection.health !== "ready") {
+      throw new Error("Only a valid Crown project can be permanently deleted.");
+    }
+    if (inspection.descriptor.projectId !== record.projectId) {
+      throw new Error("The project identity no longer matches its Launcher record.");
+    }
+
+    const root = inspection.descriptor.root;
+    // WHY: a misplaced but valid manifest could make a shared or application
+    // directory look like a project. Permanent deletion must reject those
+    // broad roots even after identity validation. Remove this guard only if a
+    // future deletion service is sandboxed to independently owned project roots.
+    const broadProtectedRoots = [
+      path.parse(root).root,
+      homedir(),
+      this.settings.get().defaultProjectDirectory,
+    ];
+    const isolatedProtectedRoots = [this.configDirectory, this.applicationDirectory];
+    const containsBroadRoot = broadProtectedRoots.some((protectedRoot) => isPathWithin(protectedRoot, root));
+    const overlapsApplicationData = isolatedProtectedRoots.some((protectedRoot) =>
+      isPathWithin(protectedRoot, root) || isPathWithin(root, protectedRoot));
+    if (containsBroadRoot || overlapsApplicationData) {
+      throw new Error("The project location is too broad to delete safely.");
+    }
+
+    await deleteDirectory(root);
+    if (!this.registry.remove(root)) {
+      throw new Error("The deleted project record could not be removed from Launcher.");
+    }
+    await this.registry.save();
   }
 
   public async setPinned(projectRoot: string, pinned: boolean): Promise<void> {

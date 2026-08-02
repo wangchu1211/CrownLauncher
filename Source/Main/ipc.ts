@@ -1,4 +1,5 @@
 import { BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { rm } from "node:fs/promises";
 import type { CreateProjectInput, CreateSampleInput, Result, SaveSettingsInput } from "../Shared/contracts";
 import { LauncherService } from "./launcherService";
 
@@ -66,7 +67,14 @@ export function registerIpc(window: BrowserWindow, service: LauncherService): vo
       throw new Error(error);
     }
   }));
+  ipcMain.handle("launcher:get-project-size", (_event, value: unknown) => result(async () => ({
+    bytes: await service.getProjectSize(requireText(value, "Project path")),
+  })));
   ipcMain.handle("launcher:remove-project", (_event, value: unknown) => result(() => service.removeProject(requireText(value, "Project path"))));
+  ipcMain.handle("launcher:delete-project", (_event, value: unknown) => result(() => service.deleteProject(
+    requireText(value, "Project path"),
+    (projectPath) => rm(projectPath, { recursive: true, force: false, maxRetries: 3, retryDelay: 100 }),
+  )));
   ipcMain.handle("launcher:set-pinned", (_event, projectPath: unknown, pinned: unknown) => result(() => service.setPinned(
     requireText(projectPath, "Project path"),
     requireBoolean(pinned, "Pinned state"),

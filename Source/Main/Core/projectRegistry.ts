@@ -25,6 +25,10 @@ export class ProjectRegistry {
     return this.records;
   }
 
+  public getRecord(projectPath: string): Readonly<ProjectRecord> | undefined {
+    return this.find(projectPath);
+  }
+
   public async load(): Promise<void> {
     let text: string;
     try {

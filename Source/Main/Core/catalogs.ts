@@ -18,6 +18,7 @@ export interface ProjectSampleInfo {
   displayName: string;
   description: string;
   category: string;
+  startupLevel: string;
   root: string;
   sourceProject: ProjectDescriptor;
 }
@@ -98,6 +99,19 @@ export async function loadProjectSamples(samplesRoot: string): Promise<ProjectSa
     if (object.schemaVersion !== 1 || !id || !displayName || ids.has(id)) {
       throw new Error(`Sample ${directoryName} has invalid or duplicate metadata.`);
     }
+    const startupLevel = typeof object.startupLevel === "string" ? object.startupLevel.trim() : "";
+    if (startupLevel && !isSafeRelativePath(startupLevel)) {
+      throw new Error(`Sample ${directoryName} contains an unsafe startup level.`);
+    }
+    if (startupLevel) {
+      try {
+        if (!(await stat(path.join(root, startupLevel))).isFile()) {
+          throw new Error("not a file");
+        }
+      } catch {
+        throw new Error(`Sample ${directoryName} startup level does not exist.`);
+      }
+    }
     const inspection = await inspectProject(root);
     if (inspection.health !== "ready") {
       throw new Error(`Sample ${directoryName} is not a valid Crown project: ${inspection.message}`);
@@ -108,6 +122,7 @@ export async function loadProjectSamples(samplesRoot: string): Promise<ProjectSa
       displayName,
       description: typeof object.description === "string" ? object.description.trim() : "",
       category: typeof object.category === "string" ? object.category.trim() : "",
+      startupLevel,
       root,
       sourceProject: inspection.descriptor,
     });

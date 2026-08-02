@@ -55,7 +55,9 @@ interface CrownHost {
     getSnapshot(): Promise<Result<LauncherSnapshot>>;
     importProject(): Promise<Result<ProjectView | null>>;
     createProject(input: CreateProjectInput): Promise<Result<ProjectView>>;
+    getProjectSize(projectPath: string): Promise<Result<ProjectSizeView>>;
     openProject(projectPath: string): Promise<Result<void>>;
+    deleteProject(projectPath: string): Promise<Result<void>>;
   };
   window: {
     minimize(): Promise<void>;
@@ -68,6 +70,12 @@ interface CrownHost {
 未来的浏览器或远程前端可以实现另一套 host adapter；React 组件不得假设 Electron、
 Windows 路径或 Node API 存在。项目领域模型和 UI 组件可以复用，文件选择、进程启动与
 安装属于 host 能力。
+
+项目大小只在用户点击 `Calculate` 后由 Main process 异步统计，结果在当前会话缓存并可
+手动刷新，避免启动或选择项目时递归扫描。目录符号链接不跟随，防止统计逃出项目根目录
+或进入环。`deleteProject` 先重新校验 registry 中的路径和 `.crownproject` 身份，并拒绝
+根目录、用户目录、默认项目父目录、Launcher 配置目录和应用目录，再永久删除项目；只有
+删除成功后才移除 registry 记录。Renderer 不获得任意文件删除能力。
 
 ## 本地数据兼容
 

@@ -125,6 +125,14 @@ button { color: inherit; }
 .projects-layout { display: grid; grid-template-columns: minmax(0, 1fr) 286px; width: 100%; height: 100%; }
 .projects-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 12px; gap: 10px; }
 .project-toolbar { display: flex; flex: 0 0 30px; gap: 7px; }
+.featured-sample { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; flex: 0 0 68px; align-items: center; gap: 11px; padding: 9px 11px; border: 1px solid #55453f; border-radius: 2px; background: linear-gradient(100deg, #302723, #252220 72%); }
+.featured-sample-mark { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid #704f42; border-radius: 2px; background: #352824; color: var(--accent); }
+.featured-sample-mark svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.15; }
+.featured-sample div { min-width: 0; }
+.featured-sample small { display: block; margin-bottom: 2px; color: var(--accent); font-size: 8px; font-weight: 700; letter-spacing: .8px; }
+.featured-sample strong { display: block; font-size: 12px; }
+.featured-sample p { margin: 2px 0 0; overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.featured-sample .button { min-width: 150px; }
 .button {
   height: 30px;
   min-width: 68px;
@@ -223,14 +231,24 @@ button { color: inherit; }
 .compact-menu { position: absolute; z-index: 30; top: 32px; right: 0; width: 156px; padding: 4px; border: 1px solid #5a5451; border-radius: 3px; background: #2d2928; box-shadow: 2px 4px 8px #0009; }
 .compact-menu button { width: 100%; height: 28px; padding: 0 9px; border: 0; border-radius: 2px; background: transparent; text-align: left; font-size: 11px; }
 .compact-menu button:hover { background: #3a3533; }
+.compact-menu button:disabled { color: var(--faint); background: transparent; }
+.compact-menu-separator { height: 1px; margin: 3px 5px; background: #4b4542; }
 .danger-menu-item { color: #d1847d; }
 .danger-menu-item:hover { color: #f09a91; }
+.danger-menu-item:disabled:hover { color: var(--faint); }
 .separator { flex: 0 0 1px; height: 1px; background: var(--line-soft); }
 .detail-section { display: flex; flex-direction: column; gap: 7px; }
 .detail-section h3 { margin: 0 0 2px; color: var(--faint); font-size: 10px; font-weight: 600; }
 .detail-section label { color: var(--text); font-size: 10px; }
 .detail-section p { margin: 0; }
 .project-path { min-height: 25px; overflow-wrap: anywhere; color: var(--muted); font-size: 10px; line-height: 1.35; }
+.detail-metric { display: flex; align-items: center; justify-content: space-between; min-height: 20px; color: var(--muted); font-size: 10px; }
+.size-action { display: flex; align-items: center; min-width: 0; height: 22px; gap: 5px; padding: 0 2px 0 7px; border: 0; border-radius: 2px; background: transparent; color: var(--muted); font-size: 10px; }
+.size-action:hover { background: #34302e; color: var(--text); }
+.size-action:disabled { background: transparent; color: var(--faint); }
+.size-action.ready { color: var(--text); }
+.size-action.error { color: var(--warning); }
+.size-action svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.2; }
 .detail-section .button { width: 100%; margin-top: 2px; }
 .detail-value { color: var(--text); font-size: 10px; }
 .validation-message { font-size: 10px; line-height: 1.4; }
@@ -303,6 +321,11 @@ button { color: inherit; }
 .editor-state.missing { color: var(--danger); }
 .remove-modal { width: 410px; min-height: 196px; }
 .remove-copy p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
+.delete-modal { width: 440px; min-height: 238px; }
+.delete-copy { display: flex; flex-direction: column; gap: 11px; }
+.delete-copy p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
+.delete-copy code { padding: 8px 9px; overflow: hidden; border: 1px solid var(--line-soft); border-radius: 2px; background: var(--field); color: var(--text); font-family: "Cascadia Mono", Consolas, monospace; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.delete-copy .delete-warning { color: var(--danger); }
 
 .error-toast { position: absolute; z-index: 200; left: 50%; bottom: 14px; display: grid; grid-template-columns: auto minmax(0, auto) 28px; align-items: center; min-width: 360px; max-width: 600px; height: 40px; gap: 8px; padding: 0 6px 0 11px; transform: translateX(-50%); border: 1px solid #874740; border-radius: 3px; background: #482725; box-shadow: 0 8px 24px #0008; color: #eed7d3; }
 .error-toast > strong { color: var(--danger); }

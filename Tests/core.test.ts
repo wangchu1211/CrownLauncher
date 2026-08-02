@@ -1,13 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ProjectSampleInfo, ProjectTemplateInfo } from "../Source/Main/Core/catalogs";
+import { loadProjectSamples, type ProjectTemplateInfo } from "../Source/Main/Core/catalogs";
+import { calculateDirectorySize } from "../Source/Main/Core/directorySize";
+import { buildEditorLaunchArguments } from "../Source/Main/Core/editorLaunch";
 import { createProject, createProjectFromSample, isValidProjectDirectoryName } from "../Source/Main/Core/projectCreator";
 import { inspectProject, writeProjectDescriptor, type ProjectDescriptor } from "../Source/Main/Core/projectDescriptor";
 import { ProjectRegistry } from "../Source/Main/Core/projectRegistry";
 import { isSafeRelativePath } from "../Source/Main/Core/paths";
+import { LauncherService } from "../Source/Main/launcherService";
 
 const temporaryRoots: string[] = [];
 
@@ -85,6 +88,59 @@ describe("project registry", () => {
   });
 });
 
+describe("project details and deletion", () => {
+  it("calculates the complete directory size without following symlinks", async () => {
+    const root = await temporaryRoot();
+    const external = await temporaryRoot();
+    await mkdir(path.join(root, "Nested"));
+    await writeFile(path.join(root, "root.bin"), Buffer.alloc(7));
+    await writeFile(path.join(root, "Nested", "child.bin"), Buffer.alloc(13));
+    await writeFile(path.join(external, "external.bin"), Buffer.alloc(100));
+    await symlink(external, path.join(root, "External"), process.platform === "win32" ? "junction" : "dir");
+    expect(await calculateDirectorySize(root)).toBe(20);
+  });
+
+  it("permanently deletes a valid project before removing its registry record", async () => {
+    const root = await temporaryRoot();
+    const config = path.join(root, "Config");
+    const projects = path.join(root, "Projects");
+    await mkdir(config, { recursive: true });
+    await mkdir(projects, { recursive: true });
+    await writeFile(path.join(config, "settings.json"), `${JSON.stringify({
+      schemaVersion: 1,
+      defaultProjectDirectory: projects,
+      editorExecutable: "",
+    })}\n`);
+    const service = new LauncherService(config, path.join(root, "Application"));
+    await service.initialize();
+
+    await service.importProject((await makeProject(projects, "Projects")).root);
+    let broadDeleteAttempted = false;
+    await expect(service.deleteProject(projects, async () => {
+      broadDeleteAttempted = true;
+    })).rejects.toThrow("too broad");
+    expect(broadDeleteAttempted).toBe(false);
+    await service.removeProject(projects);
+
+    const first = await makeProject(path.join(projects, "First"), "First");
+    await writeFile(path.join(first.root, "Assets", "data.bin"), Buffer.alloc(31));
+    await service.importProject(first.root);
+    expect(await service.getProjectSize(first.root)).toBeGreaterThanOrEqual(31);
+
+    await service.deleteProject(first.root, (projectPath) => rm(projectPath, { recursive: true }));
+    expect((await service.snapshot()).projects).toHaveLength(0);
+    await expect(stat(first.root)).rejects.toMatchObject({ code: "ENOENT" });
+
+    const second = await makeProject(path.join(projects, "Second"), "Second");
+    await service.importProject(second.root);
+    await expect(service.deleteProject(second.root, async () => {
+      throw new Error("Permanent delete failed");
+    })).rejects.toThrow("Permanent delete failed");
+    expect((await service.snapshot()).projects.map((project) => project.path)).toContain(second.root);
+    expect((await stat(second.root)).isDirectory()).toBe(true);
+  });
+});
+
 describe("project creation", () => {
   it("materializes a template transaction with C# scripting", async () => {
     const root = await temporaryRoot();
@@ -122,16 +178,19 @@ describe("project creation", () => {
     await writeFile(path.join(source.root, "Assets", "Levels", "LookDev.level"), "sample-level");
     await mkdir(path.join(source.root, "Library"));
     await writeFile(path.join(source.root, "Library", "cache.ccd"), "generated");
-    await writeFile(path.join(source.root, "sample.json"), "{}");
-    await writeFile(path.join(source.root, "CMakeLists.txt"), "sample-build-only");
-    const sample: ProjectSampleInfo = {
+    await writeFile(path.join(source.root, "sample.json"), `${JSON.stringify({
+      schemaVersion: 1,
       id: "lookdev-gallery",
-      displayName: "LookDev Gallery",
+      displayName: "LookDev Sample",
       description: "Feature gallery",
       category: "Engine Features",
-      root: source.root,
-      sourceProject: source,
-    };
+      startupLevel: "Assets/Levels/LookDev.level",
+    })}\n`);
+    await writeFile(path.join(source.root, "CMakeLists.txt"), "sample-build-only");
+    const samples = await loadProjectSamples(path.join(root, "Samples"));
+    expect(samples).toHaveLength(1);
+    const sample = samples[0];
+    expect(sample.startupLevel).toBe("Assets/Levels/LookDev.level");
     const parent = path.join(root, "CreatedSamples");
     await mkdir(parent);
     const created = await createProjectFromSample({ displayName: "My LookDev", parentDirectory: parent, sample });
@@ -141,5 +200,9 @@ describe("project creation", () => {
     await expect(stat(path.join(created.root, "Library"))).rejects.toMatchObject({ code: "ENOENT" });
     await expect(stat(path.join(created.root, "sample.json"))).rejects.toMatchObject({ code: "ENOENT" });
     await expect(stat(path.join(created.root, "CMakeLists.txt"))).rejects.toMatchObject({ code: "ENOENT" });
+    expect(buildEditorLaunchArguments(created.root, 42, sample.startupLevel)).toEqual([
+      "--project", created.root, "--launcher-pid", "42", "--load", "Assets/Levels/LookDev.level",
+    ]);
+    expect(() => buildEditorLaunchArguments(created.root, 42, "../escape.level")).toThrow("safe project-relative path");
   });
 });

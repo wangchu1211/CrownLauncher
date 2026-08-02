@@ -13,6 +13,8 @@ Editor install resolver、类型化 host API 和 UI 页面边界已经为后续�
 - 创建 Empty / Blank 3D 项目，可选 C#；
 - 从当前 Editor 安装中的官方 Samples 创建具有新项目身份的可写副本；
 - 导入、搜索、固定、Relink、Reveal、Remove from List；
+- 在详情中按用户请求统计完整项目目录大小，并支持会话内缓存和刷新；
+- 二次确认后永久删除有效项目目录，成功后再移除 Launcher 记录；
 - `.crownproject` 校验和原子 recent-project registry；
 - 与 CrownEditor 对齐的紧凑暖黑 Web UI 和自绘窗口 chrome；
 - 通过 `--project <absolute-path>` 启动当前 CrownEditor；

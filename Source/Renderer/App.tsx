@@ -21,7 +21,18 @@ import {
 } from "./icons";
 
 type Page = "projects" | "samples";
-type DialogName = "create" | "sample" | "settings" | "remove" | null;
+type DialogName = "create" | "sample" | "settings" | "remove" | "delete" | null;
+type ProjectSizeState = {
+  status: "idle" | "calculating" | "ready" | "error";
+  label: string;
+  title: string;
+};
+
+const idleProjectSize: ProjectSizeState = {
+  status: "idle",
+  label: "Calculate",
+  title: "Calculate the complete project directory size.",
+};
 
 const emptySnapshot: LauncherSnapshot = {
   projects: [],
@@ -36,6 +47,21 @@ function unwrap<T>(value: Result<T>): T {
     throw new Error(value.error);
   }
   return value.value;
+}
+
+function formatProjectSize(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unit = -1;
+  do {
+    value /= 1024;
+    unit += 1;
+  } while (value >= 1024 && unit < units.length - 1);
+  const digits = value >= 100 ? 0 : value >= 10 ? 1 : 2;
+  return `${value.toFixed(digits)} ${units[unit]}`;
 }
 
 function Button(props: React.ButtonHTMLAttributes<HTMLButtonElement> & { accent?: boolean; danger?: boolean }) {
@@ -106,15 +132,18 @@ function ProjectRow({ project, selected, onSelect, onOpen, onPin }: {
   </div>;
 }
 
-function ProjectInspector({ project, editorReady, menuOpen, onMenu, onReveal, onOpen, onRelink, onRemove, onConfigure }: {
+function ProjectInspector({ project, projectSize, editorReady, menuOpen, onMenu, onReveal, onCalculateSize, onOpen, onRelink, onRemove, onDelete, onConfigure }: {
   project: ProjectView | null;
+  projectSize: ProjectSizeState;
   editorReady: boolean;
   menuOpen: boolean;
   onMenu: () => void;
   onReveal: () => void;
+  onCalculateSize: () => void;
   onOpen: () => void;
   onRelink: () => void;
   onRemove: () => void;
+  onDelete: () => void;
   onConfigure: () => void;
 }) {
   return <aside className="inspector">
@@ -127,7 +156,11 @@ function ProjectInspector({ project, editorReady, menuOpen, onMenu, onReveal, on
         </div>
         <div className="menu-anchor">
           <button className="icon-button" aria-label="Project actions" disabled={!project} onClick={onMenu}><MoreIcon /></button>
-          {menuOpen && <div className="compact-menu"><button className="danger-menu-item" onClick={onRemove}>Remove from List</button></div>}
+          {menuOpen && <div className="compact-menu">
+            <button onClick={onRemove}>Remove from List</button>
+            <div className="compact-menu-separator" />
+            <button className="danger-menu-item" disabled={project?.health !== "ready"} onClick={onDelete}>Delete Project…</button>
+          </div>}
         </div>
       </div>
       <div className="separator" />
@@ -135,6 +168,18 @@ function ProjectInspector({ project, editorReady, menuOpen, onMenu, onReveal, on
         <h3>GENERAL</h3>
         <label>Location</label>
         <p className="project-path">{project?.path ?? "Select a project to view its location."}</p>
+        <div className="detail-metric">
+          <span>Project Size</span>
+          <button
+            className={`size-action ${projectSize.status}`}
+            title={projectSize.title}
+            disabled={!project || project.health === "missing" || projectSize.status === "calculating"}
+            onClick={onCalculateSize}
+          >
+            <span>{!project || project.health === "missing" ? "—" : projectSize.label}</span>
+            {projectSize.status === "ready" && <RefreshIcon />}
+          </button>
+        </div>
         <Button disabled={!project || project.health === "missing"} onClick={onReveal}>Show in Explorer</Button>
       </section>
       <div className="separator" />
@@ -156,19 +201,23 @@ function ProjectInspector({ project, editorReady, menuOpen, onMenu, onReveal, on
   </aside>;
 }
 
-function ProjectsPage({ snapshot, selected, search, setSearch, onSelect, onImport, onNew, onOpen, onPin, onReveal, onRelink, onRemove, onConfigure }: {
+function ProjectsPage({ snapshot, selected, projectSize, search, setSearch, onSelect, onImport, onNew, onCreateSample, onOpen, onPin, onReveal, onCalculateSize, onRelink, onRemove, onDelete, onConfigure }: {
   snapshot: LauncherSnapshot;
   selected: ProjectView | null;
+  projectSize: ProjectSizeState;
   search: string;
   setSearch: (value: string) => void;
   onSelect: (project: ProjectView) => void;
   onImport: () => void;
   onNew: () => void;
+  onCreateSample: (sample: ProjectSampleView) => void;
   onOpen: (project: ProjectView) => void;
   onPin: (project: ProjectView) => void;
   onReveal: (project: ProjectView) => void;
+  onCalculateSize: (project: ProjectView) => void;
   onRelink: (project: ProjectView) => void;
   onRemove: () => void;
+  onDelete: () => void;
   onConfigure: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -177,6 +226,7 @@ function ProjectsPage({ snapshot, selected, search, setSearch, onSelect, onImpor
     return !query ? snapshot.projects : snapshot.projects.filter((project) =>
       project.name.toLocaleLowerCase().includes(query) || project.path.toLocaleLowerCase().includes(query));
   }, [search, snapshot.projects]);
+  const lookDevSample = snapshot.samples.find((sample) => sample.id === "lookdev-gallery") ?? null;
   useEffect(() => setMenuOpen(false), [selected?.path]);
 
   return <div className="projects-layout" onClick={() => menuOpen && setMenuOpen(false)}>
@@ -186,6 +236,15 @@ function ProjectsPage({ snapshot, selected, search, setSearch, onSelect, onImpor
         <Button onClick={onImport}>Import</Button>
         <Button accent disabled={snapshot.templates.length === 0} onClick={onNew}>+&nbsp;&nbsp;New Project</Button>
       </div>
+      {lookDevSample && <section className="featured-sample">
+        <span className="featured-sample-mark"><DiamondIcon /></span>
+        <div>
+          <small>FEATURED SAMPLE</small>
+          <strong>{lookDevSample.displayName}</strong>
+          <p>{lookDevSample.description}</p>
+        </div>
+        <Button accent onClick={() => onCreateSample(lookDevSample)}>Create LookDev Sample</Button>
+      </section>}
       <div className="project-table">
         <div className="table-header"><span>PROJECT</span><span>LAST OPENED</span></div>
         <div className="project-list">
@@ -204,13 +263,16 @@ function ProjectsPage({ snapshot, selected, search, setSearch, onSelect, onImpor
     <div onClick={(event) => event.stopPropagation()}>
       <ProjectInspector
         project={selected}
+        projectSize={projectSize}
         editorReady={snapshot.editor.ready}
         menuOpen={menuOpen}
         onMenu={() => setMenuOpen((open) => !open)}
         onReveal={() => selected && onReveal(selected)}
+        onCalculateSize={() => selected && onCalculateSize(selected)}
         onOpen={() => selected && onOpen(selected)}
         onRelink={() => selected && onRelink(selected)}
         onRemove={() => { setMenuOpen(false); onRemove(); }}
+        onDelete={() => { setMenuOpen(false); onDelete(); }}
         onConfigure={onConfigure}
       />
     </div>
@@ -329,6 +391,7 @@ export function App() {
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [maximized, setMaximized] = useState(false);
+  const [projectSizes, setProjectSizes] = useState(() => new Map<string, ProjectSizeState>());
   const errorTimer = useRef<number | null>(null);
 
   const showError = useCallback((value: unknown) => {
@@ -360,6 +423,30 @@ export function App() {
   }, [refresh]);
 
   const selected = snapshot.projects.find((project) => project.path === selectedPath) ?? null;
+  const selectedProjectSize = selected ? projectSizes.get(selected.path) ?? idleProjectSize : idleProjectSize;
+  const calculateProjectSize = (project: ProjectView) => {
+    setProjectSizes((current) => new Map(current).set(project.path, {
+      status: "calculating",
+      label: "Calculating…",
+      title: "Calculating the complete project directory size.",
+    }));
+    void window.crownHost.launcher.getProjectSize(project.path).then((value) => {
+      if (!value.ok) {
+        setProjectSizes((current) => new Map(current).set(project.path, {
+          status: "error",
+          label: "Retry",
+          title: value.error,
+        }));
+        showError(value.error);
+        return;
+      }
+      setProjectSizes((current) => new Map(current).set(project.path, {
+        status: "ready",
+        label: formatProjectSize(value.value.bytes),
+        title: `${value.value.bytes.toLocaleString()} bytes. Click to recalculate.`,
+      }));
+    });
+  };
   const run = async (operation: () => Promise<void>) => {
     setBusy(true);
     try {
@@ -400,6 +487,7 @@ export function App() {
         {loading ? <div className="loading-state">Loading projects…</div> : page === "projects" ? <ProjectsPage
           snapshot={snapshot}
           selected={selected}
+          projectSize={selectedProjectSize}
           search={search}
           setSearch={setSearch}
           onSelect={(project) => setSelectedPath(project.path)}
@@ -408,14 +496,17 @@ export function App() {
             if (project) await refresh(project.path);
           })}
           onNew={() => setDialog("create")}
+          onCreateSample={(value) => { setSample(value); setDialog("sample"); }}
           onOpen={openProject}
           onPin={(project) => void run(async () => {
             unwrap(await window.crownHost.launcher.setPinned(project.path, !project.pinned));
             await refresh(project.path);
           })}
           onReveal={(project) => void run(async () => { unwrap(await window.crownHost.launcher.revealProject(project.path)); })}
+          onCalculateSize={calculateProjectSize}
           onRelink={(project) => void run(() => relinkProject(project))}
           onRemove={() => setDialog("remove")}
+          onDelete={() => setDialog("delete")}
           onConfigure={() => setDialog("settings")}
         /> : <SamplesPage
           samples={snapshot.samples}
@@ -450,6 +541,18 @@ export function App() {
         setDialog(null);
         await refresh();
       })}>Remove</Button></footer>
+    </Modal>}
+    {dialog === "delete" && selected && <Modal title="Permanently Delete Project?" onClose={() => setDialog(null)} className="delete-modal">
+      <div className="modal-content delete-copy">
+        <p>“{selected.name}” and every file inside it will be permanently deleted.</p>
+        <code>{selected.path}</code>
+        <p className="delete-warning">This action cannot be undone. The project will not be moved to the Recycle Bin.</p>
+      </div>
+      <footer className="modal-footer"><Button onClick={() => setDialog(null)}>Cancel</Button><Button danger disabled={busy} onClick={() => void run(async () => {
+        unwrap(await window.crownHost.launcher.deleteProject(selected.path));
+        setDialog(null);
+        await refresh();
+      })}>{busy ? "Deleting…" : "Delete Permanently"}</Button></footer>
     </Modal>}
     {error && <div className="error-toast" role="alert"><strong>!</strong><span>{error}</span><button className="icon-button" onClick={() => setError("")}><CloseIcon /></button></div>}
   </div>;

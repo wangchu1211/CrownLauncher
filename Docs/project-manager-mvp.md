@@ -15,6 +15,8 @@ CrownLauncher 是独立于 CrownEngine 的轻量桌面应用。MVP 建立完整�
 - 导入已有项目；
 - 保存并搜索最近项目；
 - 固定、重新定位和从列表移除项目；
+- 按用户请求查看所选项目的完整目录大小；
+- 经二次确认永久删除项目；
 - 校验项目入口文件；
 - 启动当前可用的 CrownEditor；
 - 在 Editor 启动失败时恢复 Launcher 并提供错误信息。
@@ -32,11 +34,13 @@ MVP 只支持一个本地 CrownEditor，不执行任何网络请求。多版本�
 - 用户账号、许可证和团队权限；
 - 项目云同步；
 - 遥测、崩溃上传和远程配置；
-- 删除磁盘上的项目；
+- 已删除项目的恢复；
 - 从源码构建 CrownEngine；
 - 进程内切换 Crown 项目。
 
-`Remove from List` 只删除 Launcher 的本地记录，绝不删除项目目录。
+`Remove from List` 只删除 Launcher 的本地记录，绝不删除项目目录。`Delete Project`
+是独立的危险操作：重新校验项目身份和受保护路径并经用户确认后，永久删除整个项目目录；
+删除成功后才删除 Launcher 记录，不经过系统回收站且无法恢复。
 
 ## 3. 仓库与进程边界
 
@@ -308,11 +312,12 @@ Projects               Crown RTS
 ```
 
 `Projects` 与 `Samples` 位于左侧顶部，`Settings` 固定在左下角。右侧只展示打开决策
-所需的项目名称、位置和脚本状态；正常项目不重复展示 `Ready`，只有 `Missing` / `Invalid`
+所需的项目名称、位置、用户按需计算的目录大小和脚本状态；大小结果只在当前会话缓存，
+正常项目不重复展示 `Ready`，只有 `Missing` / `Invalid`
 项目才在列表和详情中出现异常提示。固定项目在名称前常驻显示珊瑚橙图钉，并排在未固定
 项目之前；未固定项目仅在选中或悬停时显示灰色图钉按钮，单击按钮直接固定或取消固定，
 Tooltip 使用 `Pin to Top` / `Unpin from Top` 明确说明排序效果。移出列表收进 `...`
-菜单，重新定位只在 Missing 状态下作为主操作出现。
+菜单，危险的 `Delete Project` 与普通移出列表分隔；重新定位只在 Missing 状态下作为主操作出现。
 不要显示 Current Editor 卡片、不可用的 Versions / Downloads 或账号入口。Open
 按钮固定在右侧底部，但窗口底部不再预留额外状态栏或空白带。
 
@@ -323,6 +328,7 @@ Tooltip 使用 `Pin to Top` / `Unpin from Top` 明确说明排序效果。移出
 - Missing 项目的主操作变为 Relink；
 - Invalid 项目的主操作变为 View Error；
 - Delete 不直接移除，必须经过明确确认；
+- Delete 只对身份一致的 Ready 项目可用，明确提示永久删除且不可恢复，成功后才移除注册记录；
 - Remove 对话框明确写出“不会删除项目文件”。
 
 ## 11. Editor 启动与握手
@@ -460,6 +466,8 @@ Renderer 不读取 Node API，也不持有任意 IPC channel。
 - registry 原子写入和损坏恢复；
 - Relink 保留 pin 与 last-opened；
 - Remove 不删除任何项目文件；
+- 目录大小覆盖嵌套文件且不跟随符号链接；
+- Delete 成功时永久删除目录后移除 registry，删除失败时目录和记录均保持不变；
 - 模板占位符无法逃逸目标目录；
 - 创建失败只清理 staging；
 - Editor executable 缺失或启动失败；

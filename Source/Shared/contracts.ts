@@ -41,6 +41,10 @@ export interface LauncherSettingsView {
   editorExecutable: string;
 }
 
+export interface ProjectSizeView {
+  bytes: number;
+}
+
 export interface LauncherSnapshot {
   projects: ProjectView[];
   templates: ProjectTemplateView[];
@@ -80,7 +84,9 @@ export interface CrownHost {
     createSample(input: CreateSampleInput): Promise<Result<ProjectView>>;
     openProject(projectPath: string): Promise<Result<void>>;
     revealProject(projectPath: string): Promise<Result<void>>;
+    getProjectSize(projectPath: string): Promise<Result<ProjectSizeView>>;
     removeProject(projectPath: string): Promise<Result<void>>;
+    deleteProject(projectPath: string): Promise<Result<void>>;
     relinkProject(projectPath: string, projectId: string): Promise<Result<ProjectView | null>>;
     setPinned(projectPath: string, pinned: boolean): Promise<Result<void>>;
     chooseDirectory(initialDirectory: string): Promise<Result<string | null>>;
