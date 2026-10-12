@@ -16,7 +16,7 @@ Editor install resolver、类型化 host API 和 UI 页面边界已经为后续�
 - 在详情中按用户请求统计完整项目目录大小，并支持会话内缓存和刷新；
 - 二次确认后永久删除有效项目目录，成功后再移除 Launcher 记录；
 - `.crownproject` 校验和原子 recent-project registry；
-- 与 CrownEditor 对齐的紧凑暖黑 Web UI 和自绘窗口 chrome；
+- 暖黑 Web UI、窄图标栏、项目快捷侧栏、详情面板与自绘窗口 chrome；
 - 通过 `--project <absolute-path>` 启动当前 CrownEditor；
 - 从旧 Qt Launcher 自动迁移项目注册表、Editor 路径和默认项目目录；
 - sandbox、context isolation、严格 CSP 和白名单 preload API；
@@ -43,7 +43,7 @@ npm start
 
 ```powershell
 $env:CROWN_EDITOR_EXECUTABLE =
-    "D:\Code\Crown\CrownEngine\Build\win-editor\Release\crown_editor_qt.exe"
+    "D:\Code\Crown\CrownEngine\Build\CBT\Artifacts\Ninja\Win64\Shipping\CrownEditor\crown_editor_qt.exe"
 npm start
 ```
 
@@ -58,3 +58,6 @@ npm start
 
 产品方案见 [Project Manager MVP](Docs/project-manager-mvp.md)，Electron 决策与进程边界
 见 [Electron Architecture](Docs/architecture/electron-launcher.md)。
+
+后续方向见 [CBT 构建工作台方案](Docs/build-workbench.md)：UI 与 CLI 共用 CBT 执行和
+任务记录。该方案尚未实施，当前 Launcher 仍只负责项目管理和启动。

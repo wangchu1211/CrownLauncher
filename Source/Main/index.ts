@@ -36,15 +36,15 @@ function registerAppProtocol(): void {
 
 async function createWindow(): Promise<void> {
   const window = new BrowserWindow({
-    width: 1120,
-    height: 700,
+    width: 1280,
+    height: 820,
     minWidth: 960,
     minHeight: 600,
     show: false,
     frame: false,
     thickFrame: true,
     roundedCorners: true,
-    backgroundColor: "#181716",
+    backgroundColor: "#181818",
     icon: path.join(app.getAppPath(), "Resources", "app-icon.png"),
     autoHideMenuBar: true,
     webPreferences: {
@@ -59,7 +59,7 @@ async function createWindow(): Promise<void> {
     // WHY: WS_THICKFRAME follows the user's Windows accent color, which can
     // clash with Crown's neutral chrome. Keep native resize/shadow behavior but
     // make its one-pixel active border match the in-app neutral border.
-    window.setAccentColor("#48464a");
+    window.setAccentColor("#4c4542");
   }
 
   const service = new LauncherService(

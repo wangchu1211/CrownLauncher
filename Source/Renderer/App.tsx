@@ -95,12 +95,57 @@ function NavItem({ selected, label, icon, onClick }: {
   icon: React.ReactNode;
   onClick: () => void;
 }) {
-  return <button className={`nav-item ${selected ? "selected" : ""}`} onClick={onClick}>
+  return <button className={`nav-item ${selected ? "selected" : ""}`} aria-current={selected ? "page" : undefined} onClick={onClick}>
     {icon}<span>{label}</span>
   </button>;
 }
 
-function ProjectRow({ project, selected, onSelect, onOpen, onPin }: {
+export function Sidebar({ page, snapshot, selectedPath, onPage, onSelect, onSettings }: {
+  page: Page;
+  snapshot: LauncherSnapshot;
+  selectedPath: string;
+  onPage: (page: Page) => void;
+  onSelect: (project: ProjectView) => void;
+  onSettings: () => void;
+}) {
+  const pinned = snapshot.projects.filter((project) => project.pinned);
+  const recent = snapshot.projects.filter((project) => !project.pinned).slice(0, 6);
+  const projectLink = (project: ProjectView) => <button
+    key={project.path}
+    className={`project-shortcut ${page === "projects" && selectedPath === project.path ? "selected" : ""}`}
+    title={project.path}
+    onClick={() => onSelect(project)}
+  ><FolderIcon /><span>{project.name}</span></button>;
+  return <>
+    <nav className="icon-rail" aria-label="Quick navigation">
+      <img className="rail-brand" src={appIcon} alt="Crown" />
+      <button className={`rail-button ${page === "projects" ? "selected" : ""}`} aria-label="Projects" title="Projects" aria-current={page === "projects" ? "page" : undefined} onClick={() => onPage("projects")}><FolderIcon /></button>
+      <button className={`rail-button ${page === "samples" ? "selected" : ""}`} aria-label="Samples" title="Samples" aria-current={page === "samples" ? "page" : undefined} onClick={() => onPage("samples")}><DiamondIcon /></button>
+      <button className="rail-button rail-settings" aria-label="Settings" title="Settings" onClick={onSettings}><SettingsIcon /></button>
+    </nav>
+    <aside className="sidebar">
+      <div className="sidebar-brand"><strong>Crown</strong><span>Launcher</span></div>
+      <nav className="nav-top" aria-label="Workspace">
+        <NavItem selected={page === "projects"} label="Projects" icon={<FolderIcon />} onClick={() => onPage("projects")} />
+        <NavItem selected={page === "samples"} label="Samples" icon={<DiamondIcon />} onClick={() => onPage("samples")} />
+      </nav>
+      <div className="sidebar-projects">
+        {pinned.length > 0 && <section className="shortcut-group"><h2>Pinned</h2>{pinned.map(projectLink)}</section>}
+        <section className="shortcut-group"><h2>Projects</h2>{recent.map(projectLink)}
+          {snapshot.projects.length === 0 && <p className="sidebar-hint">Your projects will appear here.</p>}
+          {recent.length === 0 && pinned.length > 0 && <p className="sidebar-hint">All your projects are pinned.</p>}
+        </section>
+      </div>
+      <button className="editor-connection" title={snapshot.editor.executable || "Choose your Editor installation"} onClick={onSettings}>
+        <i className={snapshot.editor.ready ? "connected" : ""} />
+        <span><strong>CrownEditor</strong><small>{snapshot.editor.ready ? "Ready to launch" : "Setup required"}</small></span>
+        <SettingsIcon />
+      </button>
+    </aside>
+  </>;
+}
+
+export function ProjectRow({ project, selected, onSelect, onOpen, onPin }: {
   project: ProjectView;
   selected: boolean;
   onSelect: () => void;
@@ -114,25 +159,28 @@ function ProjectRow({ project, selected, onSelect, onOpen, onPin }: {
   return <div
     className={`project-row ${selected ? "selected" : ""}`}
     role="button"
+    aria-label={`${project.name} — ${project.path}`}
+    aria-pressed={selected}
     tabIndex={0}
     onClick={onSelect}
     onDoubleClick={onOpen}
     onKeyDown={(event) => {
-      if (event.key === "Enter") onOpen();
-      if (event.key === " ") onSelect();
+      if (event.target !== event.currentTarget) return;
+      if (event.key === "Enter") { event.preventDefault(); onOpen(); }
+      if (event.key === " ") { event.preventDefault(); onSelect(); }
     }}
   >
-    <span className="selection-line" />
-    <button className={`pin-button ${project.pinned ? "pinned" : ""}`} title={project.pinned ? "Unpin from Top" : "Pin to Top"} onClick={pinClick}>
+    <span className="project-tile"><ProjectIcon /></span>
+    <span className="project-row-copy"><span className="project-row-name">{project.name}</span><span className="project-row-path" title={project.path}>{project.path}</span></span>
+    {project.health !== "ready" && <span className={`health-badge ${project.health}`}>{project.health === "missing" ? "Missing" : "Invalid"}</span>}
+    <button className={`pin-button ${project.pinned ? "pinned" : ""}`} aria-label={project.pinned ? `Unpin ${project.name}` : `Pin ${project.name}`} aria-pressed={project.pinned} title={project.pinned ? "Unpin from Top" : "Pin to Top"} onClick={pinClick} onDoubleClick={(event) => event.stopPropagation()}>
       <PinIcon />
     </button>
-    <span className="project-row-name">{project.name}</span>
-    {project.health !== "ready" && <span className={`health-badge ${project.health}`}>{project.health === "missing" ? "Missing" : "Invalid"}</span>}
     <span className="last-opened">{project.lastOpenedLabel}</span>
   </div>;
 }
 
-function ProjectInspector({ project, projectSize, editorReady, menuOpen, onMenu, onReveal, onCalculateSize, onOpen, onRelink, onRemove, onDelete, onConfigure }: {
+export function ProjectInspector({ project, projectSize, editorReady, menuOpen, onMenu, onReveal, onCalculateSize, onOpen, onRelink, onRemove, onDelete, onConfigure }: {
   project: ProjectView | null;
   projectSize: ProjectSizeState;
   editorReady: boolean;
@@ -147,15 +195,17 @@ function ProjectInspector({ project, projectSize, editorReady, menuOpen, onMenu,
   onConfigure: () => void;
 }) {
   return <aside className="inspector">
+    <div className="inspector-tab"><ProjectIcon className="inspector-tab-icon" /><span>Project Inspector</span></div>
     <div className="inspector-body">
       <div className="project-heading">
         <ProjectIcon className="project-mark" />
         <div className="project-heading-text">
           <strong>{project?.name ?? "No project selected"}</strong>
+          {project?.health === "ready" && <span className="project-kind">Crown project</span>}
           {project && project.health !== "ready" && <span className={`health-detail ${project.health}`}><i />{project.health === "missing" ? "Missing" : "Invalid"}</span>}
         </div>
         <div className="menu-anchor">
-          <button className="icon-button" aria-label="Project actions" disabled={!project} onClick={onMenu}><MoreIcon /></button>
+          <button className="icon-button" aria-label="Project actions" aria-expanded={menuOpen} disabled={!project} onClick={onMenu}><MoreIcon /></button>
           {menuOpen && <div className="compact-menu">
             <button onClick={onRemove}>Remove from List</button>
             <div className="compact-menu-separator" />
@@ -165,7 +215,7 @@ function ProjectInspector({ project, projectSize, editorReady, menuOpen, onMenu,
       </div>
       <div className="separator" />
       <section className="detail-section">
-        <h3>GENERAL</h3>
+        <h3>General</h3>
         <label>Location</label>
         <p className="project-path">{project?.path ?? "Select a project to view its location."}</p>
         <div className="detail-metric">
@@ -184,7 +234,7 @@ function ProjectInspector({ project, projectSize, editorReady, menuOpen, onMenu,
       </section>
       <div className="separator" />
       <section className="detail-section">
-        <h3>SCRIPTING</h3>
+        <h3>Scripting</h3>
         <p className="detail-value">{project ? (project.scripting ? "C# enabled" : "Disabled") : "—"}</p>
         {project && project.health !== "ready" && <p className={`validation-message ${project.health}`}>{project.message}</p>}
       </section>
@@ -201,7 +251,7 @@ function ProjectInspector({ project, projectSize, editorReady, menuOpen, onMenu,
   </aside>;
 }
 
-function ProjectsPage({ snapshot, selected, projectSize, search, setSearch, onSelect, onImport, onNew, onCreateSample, onOpen, onPin, onReveal, onCalculateSize, onRelink, onRemove, onDelete, onConfigure }: {
+export function ProjectsPage({ snapshot, selected, projectSize, search, setSearch, onSelect, onImport, onNew, onCreateSample, onOpen, onPin, onReveal, onCalculateSize, onRelink, onRemove, onDelete, onConfigure }: {
   snapshot: LauncherSnapshot;
   selected: ProjectView | null;
   projectSize: ProjectSizeState;
@@ -231,22 +281,25 @@ function ProjectsPage({ snapshot, selected, projectSize, search, setSearch, onSe
 
   return <div className="projects-layout" onClick={() => menuOpen && setMenuOpen(false)}>
     <main className="projects-main">
+      <header className="page-heading">
+        <div><h1>Projects</h1><p>A place for everything you build.</p></div>
+        <div className="heading-actions"><Button onClick={onImport}>Import</Button><Button accent disabled={snapshot.templates.length === 0} onClick={onNew}><span aria-hidden="true">＋</span> New Project</Button></div>
+      </header>
       <div className="project-toolbar">
-        <label className="search-field"><SearchIcon /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search projects" /></label>
-        <Button onClick={onImport}>Import</Button>
-        <Button accent disabled={snapshot.templates.length === 0} onClick={onNew}>+&nbsp;&nbsp;New Project</Button>
+        <label className="search-field"><SearchIcon /><input aria-label="Search projects" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name or path…" />{search && <button className="icon-button" aria-label="Clear search" onClick={() => setSearch("")}><CloseIcon /></button>}</label>
+        <span className="project-count" role="status">{filtered.length} {filtered.length === 1 ? "project" : "projects"}</span>
       </div>
       {lookDevSample && <section className="featured-sample">
         <span className="featured-sample-mark"><DiamondIcon /></span>
         <div>
-          <small>FEATURED SAMPLE</small>
+          <small>EXPLORE CROWN</small>
           <strong>{lookDevSample.displayName}</strong>
           <p>{lookDevSample.description}</p>
         </div>
-        <Button accent onClick={() => onCreateSample(lookDevSample)}>Create LookDev Sample</Button>
+        <Button onClick={() => onCreateSample(lookDevSample)}>Create a copy <span aria-hidden="true">↗</span></Button>
       </section>}
       <div className="project-table">
-        <div className="table-header"><span>PROJECT</span><span>LAST OPENED</span></div>
+        <div className="table-header"><span>All projects</span><span>Last opened</span></div>
         <div className="project-list">
           {filtered.map((project) => <ProjectRow
             key={project.path}
@@ -256,11 +309,11 @@ function ProjectsPage({ snapshot, selected, projectSize, search, setSearch, onSe
             onOpen={() => onOpen(project)}
             onPin={() => onPin(project)}
           />)}
-          {filtered.length === 0 && <div className="empty-state"><strong>{search ? "No matching projects" : "No projects yet"}</strong><span>{search ? "Try a different name or path." : "Import a project or create a new one."}</span></div>}
+          {filtered.length === 0 && <div className="empty-state"><FolderIcon /><strong>{search ? "No matching projects" : "Your next idea starts here"}</strong><span>{search ? "Try a different name or path." : "Import a project or create a new one."}</span></div>}
         </div>
       </div>
     </main>
-    <div onClick={(event) => event.stopPropagation()}>
+    <div className="inspector-container" onClick={(event) => event.stopPropagation()}>
       <ProjectInspector
         project={selected}
         projectSize={projectSize}
@@ -279,21 +332,21 @@ function ProjectsPage({ snapshot, selected, projectSize, search, setSearch, onSe
   </div>;
 }
 
-function SamplesPage({ samples, editorReady, onRefresh, onCreate }: {
+export function SamplesPage({ samples, editorReady, onRefresh, onCreate }: {
   samples: ProjectSampleView[];
   editorReady: boolean;
   onRefresh: () => void;
   onCreate: (sample: ProjectSampleView) => void;
 }) {
   return <main className="samples-page">
-    <div className="samples-heading"><strong>Samples</strong><span>Create a writable copy from an installed sample</span><button className="icon-button" title="Refresh" onClick={onRefresh}><RefreshIcon /></button></div>
+    <header className="page-heading"><div><h1>Samples</h1><p>Explore Crown. Make it your own.</p></div><Button onClick={onRefresh}><RefreshIcon /> Refresh</Button></header>
+    <div className="section-caption">FROM YOUR EDITOR INSTALLATION</div>
     <div className="sample-grid">
       {samples.map((sample) => <article className="sample-card" key={sample.id}>
-        <span className="sample-accent" />
-        <small>{(sample.category || "SAMPLE").toLocaleUpperCase()}</small>
+        <div className="sample-card-top"><span className="sample-symbol"><DiamondIcon /></span><small>{(sample.category || "SAMPLE").toLocaleUpperCase()}</small></div>
         <strong>{sample.displayName}</strong>
         <p>{sample.description}</p>
-        <footer><span>{sample.scripting ? "C#  •  Full project" : "Full project"}</span><Button accent onClick={() => onCreate(sample)}>Create Copy</Button></footer>
+        <footer><span>{sample.scripting ? "C#  ·  Full project" : "Full project"}</span><Button onClick={() => onCreate(sample)}>Create Copy <span aria-hidden="true">↗</span></Button></footer>
       </article>)}
       {samples.length === 0 && <div className="empty-state sample-empty"><strong>{editorReady ? "No samples installed" : "Configure CrownEditor to discover samples"}</strong><span>Samples are supplied by the selected Editor installation.</span></div>}
     </div>
@@ -301,8 +354,22 @@ function SamplesPage({ samples, editorReady, onRefresh, onCreate }: {
 }
 
 function Modal({ title, children, onClose, className = "" }: { title: string; children: React.ReactNode; onClose: () => void; className?: string }) {
+  const modalRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const previous = document.activeElement;
+    if (!modalRef.current?.contains(previous)) modalRef.current?.focus();
+    return () => { if (previous instanceof HTMLElement && previous.isConnected) previous.focus(); };
+  }, []);
   return <div className="modal-overlay" role="presentation">
-    <section className={`modal ${className}`} role="dialog" aria-modal="true" aria-label={title}>
+    <section ref={modalRef} tabIndex={-1} className={`modal ${className}`} role="dialog" aria-modal="true" aria-label={title} onKeyDown={(event) => {
+      if (event.key === "Escape") { event.stopPropagation(); onClose(); }
+      if (event.key !== "Tab") return;
+      const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]'));
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === event.currentTarget)) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || document.activeElement === event.currentTarget)) { event.preventDefault(); first?.focus(); }
+    }}>
       <header><strong>{title}</strong><button className="icon-button" aria-label="Close" onClick={onClose}><CloseIcon /></button></header>
       {children}
     </section>
@@ -323,12 +390,12 @@ function CreateProjectDialog({ snapshot, busy, onClose, onChooseDirectory, onSub
   const template = snapshot.templates.find((entry) => entry.id === templateId);
   return <Modal title="Create Crown Project" onClose={onClose} className="create-modal">
     <div className="modal-content form-stack">
-      <label className="field-caption">PROJECT NAME</label>
-      <input className="text-field" autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="My Crown Project" />
-      <label className="field-caption">LOCATION</label>
-      <div className="field-row"><input className="text-field" value={location} onChange={(event) => setLocation(event.target.value)} /><Button onClick={() => void onChooseDirectory(location).then((value) => value && setLocation(value))}>Browse</Button></div>
-      <label className="field-caption">TEMPLATE</label>
-      <label className="select-field"><select value={templateId} onChange={(event) => setTemplateId(event.target.value)}>{snapshot.templates.map((entry) => <option key={entry.id} value={entry.id}>{entry.displayName}</option>)}</select><ChevronIcon /></label>
+      <label className="field-caption" htmlFor="create-name">PROJECT NAME</label>
+      <input id="create-name" className="text-field" autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="My Crown Project" />
+      <label className="field-caption" htmlFor="create-location">LOCATION</label>
+      <div className="field-row"><input id="create-location" className="text-field" value={location} onChange={(event) => setLocation(event.target.value)} /><Button onClick={() => void onChooseDirectory(location).then((value) => value && setLocation(value))}>Browse</Button></div>
+      <label className="field-caption" htmlFor="create-template">TEMPLATE</label>
+      <div className="select-field"><select id="create-template" value={templateId} onChange={(event) => setTemplateId(event.target.value)}>{snapshot.templates.map((entry) => <option key={entry.id} value={entry.id}>{entry.displayName}</option>)}</select><ChevronIcon /></div>
       <p className="template-description">{template?.description}</p>
       <label className={`check-row ${template?.supportsScripting ? "" : "disabled"}`}><input type="checkbox" checked={scripting} disabled={!template?.supportsScripting} onChange={(event) => setScripting(event.target.checked)} /><span className="checkbox-mark" /><span><strong>Enable C# scripting</strong><small>Creates a project-local script assembly.</small></span></label>
     </div>
@@ -349,10 +416,10 @@ function SampleDialog({ sample, snapshot, busy, onClose, onChooseDirectory, onSu
   return <Modal title="Create Sample Copy" onClose={onClose} className="sample-modal">
     <div className="modal-content form-stack">
       <p className="modal-explanation">The installed sample stays read-only. Crown Launcher creates a writable project with a new identity.</p>
-      <label className="field-caption">PROJECT NAME</label>
-      <input className="text-field" autoFocus value={name} onFocus={(event) => event.currentTarget.select()} onChange={(event) => setName(event.target.value)} />
-      <label className="field-caption">LOCATION</label>
-      <div className="field-row"><input className="text-field" value={location} onChange={(event) => setLocation(event.target.value)} /><Button onClick={() => void onChooseDirectory(location).then((value) => value && setLocation(value))}>Browse</Button></div>
+      <label className="field-caption" htmlFor="sample-name">PROJECT NAME</label>
+      <input id="sample-name" className="text-field" autoFocus value={name} onFocus={(event) => event.currentTarget.select()} onChange={(event) => setName(event.target.value)} />
+      <label className="field-caption" htmlFor="sample-location">LOCATION</label>
+      <div className="field-row"><input id="sample-location" className="text-field" value={location} onChange={(event) => setLocation(event.target.value)} /><Button onClick={() => void onChooseDirectory(location).then((value) => value && setLocation(value))}>Browse</Button></div>
     </div>
     <footer className="modal-footer"><Button onClick={onClose}>Cancel</Button><Button accent disabled={busy || !name.trim() || !location} onClick={() => void onSubmit(name, location)}>{busy ? "Creating…" : snapshot.editor.ready ? "Create & Open" : "Create Copy"}</Button></footer>
   </Modal>;
@@ -370,11 +437,11 @@ function SettingsDialog({ snapshot, busy, onClose, onChooseDirectory, onChooseEd
   const [editor, setEditor] = useState(snapshot.settings.editorExecutable || snapshot.editor.executable);
   return <Modal title="Launcher Settings" onClose={onClose} className="settings-modal">
     <div className="modal-content form-stack">
-      <label className="field-caption">CROWNEDITOR EXECUTABLE</label>
-      <div className="field-row"><input className="text-field" value={editor} onChange={(event) => setEditor(event.target.value)} /><Button onClick={() => void onChooseEditor(editor).then((value) => value && setEditor(value))}>Choose</Button></div>
+      <label className="field-caption" htmlFor="settings-editor">CROWNEDITOR EXECUTABLE</label>
+      <div className="field-row"><input id="settings-editor" className="text-field" value={editor} onChange={(event) => setEditor(event.target.value)} /><Button onClick={() => void onChooseEditor(editor).then((value) => value && setEditor(value))}>Choose</Button></div>
       <p className={`editor-state ${snapshot.editor.ready ? "ready" : "missing"}`}><i />{snapshot.editor.ready ? `CrownEditor ${snapshot.editor.version}` : snapshot.editor.error}</p>
-      <label className="field-caption settings-directory-label">DEFAULT PROJECT LOCATION</label>
-      <div className="field-row"><input className="text-field" value={directory} onChange={(event) => setDirectory(event.target.value)} /><Button onClick={() => void onChooseDirectory(directory).then((value) => value && setDirectory(value))}>Browse</Button></div>
+      <label className="field-caption settings-directory-label" htmlFor="settings-directory">DEFAULT PROJECT LOCATION</label>
+      <div className="field-row"><input id="settings-directory" className="text-field" value={directory} onChange={(event) => setDirectory(event.target.value)} /><Button onClick={() => void onChooseDirectory(directory).then((value) => value && setDirectory(value))}>Browse</Button></div>
     </div>
     <footer className="modal-footer"><Button onClick={onClose}>Cancel</Button><Button accent disabled={busy || !directory} onClick={() => void onSubmit(directory, editor)}>{busy ? "Saving…" : "Save"}</Button></footer>
   </Modal>;
@@ -475,14 +542,8 @@ export function App() {
 
   return <div className={`app-shell ${maximized ? "maximized" : ""}`}>
     <TitleBar maximized={maximized} />
-    <div className="workspace">
-      <nav className="sidebar">
-        <div className="nav-top">
-          <NavItem selected={page === "projects"} label="Projects" icon={<FolderIcon />} onClick={() => setPage("projects")} />
-          <NavItem selected={page === "samples"} label="Samples" icon={<DiamondIcon />} onClick={() => setPage("samples")} />
-        </div>
-        <button className="settings-nav" onClick={() => setDialog("settings")}><SettingsIcon /><span>Settings</span></button>
-      </nav>
+    <div className="workspace" inert={dialog !== null}>
+      <Sidebar page={page} snapshot={snapshot} selectedPath={selectedPath} onPage={setPage} onSelect={(project) => { setPage("projects"); setSearch(""); setSelectedPath(project.path); }} onSettings={() => setDialog("settings")} />
       <section className="content">
         {loading ? <div className="loading-state">Loading projects…</div> : page === "projects" ? <ProjectsPage
           snapshot={snapshot}
@@ -554,6 +615,6 @@ export function App() {
         await refresh();
       })}>{busy ? "Deleting…" : "Delete Permanently"}</Button></footer>
     </Modal>}
-    {error && <div className="error-toast" role="alert"><strong>!</strong><span>{error}</span><button className="icon-button" onClick={() => setError("")}><CloseIcon /></button></div>}
+    {error && <div className="error-toast" role="alert"><strong>!</strong><span>{error}</span><button className="icon-button" aria-label="Dismiss error" onClick={() => setError("")}><CloseIcon /></button></div>}
   </div>;
 }

@@ -1,0 +1,37 @@
+/* Crown token names shared with Editor; values tuned for the Launcher desktop UI. */
+:root {
+  --crown-font-ui: "Noto Sans SC", "Segoe UI", "Arial", sans-serif;
+  --crown-font-mono: "Cascadia Mono", "Cascadia Code", "Consolas", monospace;
+  --crown-font-size-base: 13px;
+  --crown-font-size-small: 11px;
+  --crown-app-background: #181818;
+  --crown-panel-background: #1e1c1c;
+  --crown-sunken-background: #171616;
+  --crown-chrome: #261f1e;
+  --crown-toolbar-chrome: #211e1d;
+  --crown-chrome-raised: #292626;
+  --crown-field: #202020;
+  --crown-line: #353231;
+  --crown-line-soft: #2c2928;
+  --crown-line-strong: #4c4542;
+  --crown-hover: #35302e;
+  --crown-text: #ddd9d6;
+  --crown-muted: #b4aeaa;
+  --crown-faint: #928a85;
+  --crown-strong: #f2eeeb;
+  --crown-selection: #322e2c;
+  --crown-accent: #d7a38c;
+  --crown-ok: #91ab87;
+  --crown-warning: #c8a75a;
+  --crown-danger: #d66a62;
+  --crown-window-chrome-height: 38px;
+  --crown-global-toolbar-height: 30px;
+  --crown-panel-header-height: 27px;
+  --crown-object-header-height: 56px;
+  --crown-inspector-property-row-height: 24px;
+  --crown-toolbar-button-height: 34px;
+  --crown-icon-size: 14px;
+  --crown-control-gap: 6px;
+  --crown-radius-small: 4px;
+  --crown-radius-control: 8px;
+}
