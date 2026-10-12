@@ -3,6 +3,8 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { registerIpc } from "./ipc";
 import { LauncherService } from "./launcherService";
+import { WorkbenchService } from "./workbenchService";
+import { registerZoomShortcuts } from "./zoomShortcuts";
 
 protocol.registerSchemesAsPrivileged([{
   scheme: "crown",
@@ -68,7 +70,8 @@ async function createWindow(): Promise<void> {
     process.env.CROWN_LAUNCHER_REGISTRY_PATH?.trim(),
   );
   await service.initialize();
-  registerIpc(window, service);
+  registerIpc(window, service, new WorkbenchService(configDirectory()));
+  registerZoomShortcuts(window.webContents);
 
   window.on("maximize", () => window.webContents.send("window:maximized-changed", true));
   window.on("unmaximize", () => window.webContents.send("window:maximized-changed", false));

@@ -2,6 +2,7 @@ import { BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { rm } from "node:fs/promises";
 import type { CreateProjectInput, CreateSampleInput, Result, SaveSettingsInput } from "../Shared/contracts";
 import { LauncherService } from "./launcherService";
+import { WorkbenchService } from "./workbenchService";
 
 function result<T>(operation: () => Promise<T>): Promise<Result<T>> {
   return operation()
@@ -46,7 +47,22 @@ function parseCreateSample(value: unknown): CreateSampleInput {
   };
 }
 
-export function registerIpc(window: BrowserWindow, service: LauncherService): void {
+export function registerIpc(window: BrowserWindow, service: LauncherService, workbench: WorkbenchService): void {
+  ipcMain.handle("workbench:workspaces", () => result(() => workbench.workspaces()));
+  ipcMain.handle("workbench:choose-workspace", () => result(async () => {
+    const selection = await dialog.showOpenDialog(window, { title: "Choose CrownEngine source workspace", properties: ["openDirectory", "dontAddToRecent"] });
+    return selection.canceled ? null : selection.filePaths[0] ?? null;
+  }));
+  ipcMain.handle("workbench:connect", (_event, value: unknown) => result(() => workbench.connect(requireText(value, "Workspace"))));
+  ipcMain.handle("workbench:describe", (_event, value: unknown) => result(() => workbench.describe(value)));
+  ipcMain.handle("workbench:start", (_event, value: unknown) => result(() => workbench.start(value)));
+  ipcMain.handle("workbench:history", (_event, workspace: unknown) => result(() => workbench.history(requireText(workspace, "Workspace"))));
+  ipcMain.handle("workbench:job", (_event, workspace: unknown, id: unknown) => result(() => workbench.job(requireText(workspace, "Workspace"), requireText(id, "Task ID"))));
+  ipcMain.handle("workbench:cancel", (_event, workspace: unknown, id: unknown) => result(() => workbench.cancel(requireText(workspace, "Workspace"), requireText(id, "Task ID"))));
+  ipcMain.handle("workbench:reveal", (_event, workspace: unknown, id: unknown, item: unknown) => result(async () => {
+    if (item !== "log" && item !== "artifact") throw new Error("Unsupported task output.");
+    shell.showItemInFolder(await workbench.revealPath(requireText(workspace, "Workspace"), requireText(id, "Task ID"), item));
+  }));
   ipcMain.handle("launcher:get-snapshot", () => result(() => service.snapshot()));
   ipcMain.handle("launcher:import-project", () => result(async () => {
     const selection = await dialog.showOpenDialog(window, {

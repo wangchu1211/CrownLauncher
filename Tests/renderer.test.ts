@@ -1,4 +1,4 @@
-import { createElement, type ComponentProps, type KeyboardEvent, type ReactElement } from "react";
+import { Children, createElement, isValidElement, type ComponentProps, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { ProjectInspector, ProjectRow, ProjectsPage, SamplesPage, Sidebar } from "../Source/Renderer/App";
@@ -24,22 +24,59 @@ const pageProps: ComponentProps<typeof ProjectsPage> = {
 };
 
 describe("Launcher presentation", () => {
-  it("renders real sidebar projects and installation state, without a placeholder Build entry", () => {
+  it.each([true, false])("keeps Editor readiness in the settings description and tooltip: %s", ready => {
     const html = renderToStaticMarkup(createElement(Sidebar, {
-      page: "projects", snapshot: { ...snapshot, projects: [{ ...project, pinned: true }] },
-      selectedPath: project.path, onPage: noop, onSelect: noop, onSettings: noop,
+      page: "projects", snapshot: { ...snapshot, editor: { ...snapshot.editor, ready } },
+      onPage: noop, onSettings: noop,
     }));
-    expect(html).toContain("Pinned");
-    expect(html.match(/LookDev 项目/g)).toHaveLength(1);
-    expect(html).toContain("Ready to launch");
-    expect(html).toContain('aria-current="page"');
-    expect(html).not.toContain(">Build<");
-    const empty = renderToStaticMarkup(createElement(Sidebar, {
-      page: "samples", snapshot: { ...snapshot, projects: [], editor: { ...snapshot.editor, ready: false } },
-      selectedPath: "", onPage: noop, onSelect: noop, onSettings: noop,
+    const description = `CrownEditor · ${ready ? "Ready to launch" : "Setup required"}`;
+    expect(html).toContain(`aria-description="${description}"`);
+    expect(html).toContain(`<small>${description}</small>`);
+    expect(html.includes('class="connected"')).toBe(ready);
+  });
+
+  it.each(["projects", "samples", "build"] as const)("renders a single icon rail with accessible hover labels on %s", page => {
+    const html = renderToStaticMarkup(createElement(Sidebar, {
+      page, snapshot, onPage: noop, onSettings: noop,
     }));
-    expect(empty).toContain("Your projects will appear here.");
-    expect(empty).toContain("Setup required");
+    expect(html.match(/<nav\b/g)).toHaveLength(1);
+    expect(html.match(/<button\b/g)).toHaveLength(4);
+    for (const label of ["Projects", "Samples", "Build", "Settings"]) {
+      expect(html.match(new RegExp(`aria-label="${label}"`, "g"))).toHaveLength(1);
+      expect(html).toContain(`class="nav-tooltip" aria-hidden="true">${label}`);
+    }
+    // Use one styled tooltip, not a second delayed native title tooltip.
+    expect(html).not.toContain('title="');
+    expect(html.match(/aria-current="page"/g)).toHaveLength(1);
+    expect(html).toContain(`aria-label="${page[0]!.toUpperCase() + page.slice(1)}" aria-current="page"`);
+    expect(html).not.toContain("sidebar-projects");
+    expect(html).not.toContain("sidebar-toggle");
+    expect(html).not.toContain(project.name);
+  });
+
+  it("keeps icon navigation and settings as separate actions", () => {
+    const onPage = vi.fn(), onSettings = vi.fn();
+    const tree = Sidebar({ page: "build", snapshot, onPage, onSettings });
+    type NodeProps = { children?: ReactNode; onClick?: () => void; label?: string; className?: string; "aria-label"?: string };
+    const nodes: ReactElement<NodeProps>[] = [];
+    const visit = (children: ReactNode) => Children.forEach(children, child => {
+      if (!isValidElement<NodeProps>(child)) return;
+      nodes.push(child);
+      visit(child.props.children);
+    });
+    visit(tree);
+    const click = (matches: (node: ReactElement<NodeProps>) => boolean) => {
+      const matching = nodes.filter(matches);
+      expect(matching).toHaveLength(1);
+      expect(matching[0]!.props.onClick).toBeTypeOf("function");
+      matching[0]!.props.onClick!();
+    };
+    for (const label of ["Projects", "Samples", "Build"]) click(node => node.props.label === label);
+    expect(onPage.mock.calls).toEqual([["projects"], ["samples"], ["build"]]);
+    expect(onSettings).not.toHaveBeenCalled();
+    click(node => node.props.label === "Settings");
+    expect(onSettings).toHaveBeenCalledOnce();
+    expect(onPage).toHaveBeenCalledTimes(3);
   });
 
   it("filters names and paths case-insensitively and reports the filtered count", () => {

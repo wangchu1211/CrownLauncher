@@ -2,6 +2,17 @@ import { contextBridge, ipcRenderer } from "electron";
 import type { CrownHost } from "../Shared/contracts";
 
 const crownHost: CrownHost = {
+  workbench: {
+    getWorkspaces: () => ipcRenderer.invoke("workbench:workspaces"),
+    chooseWorkspace: () => ipcRenderer.invoke("workbench:choose-workspace"),
+    connect: workspace => ipcRenderer.invoke("workbench:connect", workspace),
+    describe: request => ipcRenderer.invoke("workbench:describe", request),
+    start: request => ipcRenderer.invoke("workbench:start", request),
+    history: workspace => ipcRenderer.invoke("workbench:history", workspace),
+    job: (workspace, id) => ipcRenderer.invoke("workbench:job", workspace, id),
+    cancel: (workspace, id) => ipcRenderer.invoke("workbench:cancel", workspace, id),
+    reveal: (workspace, id, item) => ipcRenderer.invoke("workbench:reveal", workspace, id, item),
+  },
   launcher: {
     getSnapshot: () => ipcRenderer.invoke("launcher:get-snapshot"),
     importProject: () => ipcRenderer.invoke("launcher:import-project"),

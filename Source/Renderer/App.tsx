@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import appIcon from "../../Resources/app-icon.png";
+import { WorkbenchPage } from "./WorkbenchPage";
 import type {
   CreateProjectInput,
   LauncherSnapshot,
@@ -8,6 +9,7 @@ import type {
   Result,
 } from "../Shared/contracts";
 import {
+  BuildIcon,
   ChevronIcon,
   CloseIcon,
   DiamondIcon,
@@ -20,7 +22,7 @@ import {
   SettingsIcon,
 } from "./icons";
 
-type Page = "projects" | "samples";
+type Page = "projects" | "samples" | "build";
 type DialogName = "create" | "sample" | "settings" | "remove" | "delete" | null;
 type ProjectSizeState = {
   status: "idle" | "calculating" | "ready" | "error";
@@ -89,60 +91,37 @@ function TitleBar({ maximized }: { maximized: boolean }) {
   </header>;
 }
 
-function NavItem({ selected, label, icon, onClick }: {
+function NavItem({ selected, label, description, icon, onClick }: {
   selected: boolean;
   label: string;
+  description?: string;
   icon: React.ReactNode;
   onClick: () => void;
 }) {
-  return <button className={`nav-item ${selected ? "selected" : ""}`} aria-current={selected ? "page" : undefined} onClick={onClick}>
-    {icon}<span>{label}</span>
+  return <button className={`nav-item ${selected ? "selected" : ""}`} aria-label={label} aria-description={description} aria-current={selected ? "page" : undefined} onClick={onClick}>
+    {icon}<span className="nav-tooltip" aria-hidden="true">{label}{description && <small>{description}</small>}</span>
   </button>;
 }
 
-export function Sidebar({ page, snapshot, selectedPath, onPage, onSelect, onSettings }: {
+export function Sidebar({ page, snapshot, onPage, onSettings }: {
   page: Page;
   snapshot: LauncherSnapshot;
-  selectedPath: string;
   onPage: (page: Page) => void;
-  onSelect: (project: ProjectView) => void;
   onSettings: () => void;
 }) {
-  const pinned = snapshot.projects.filter((project) => project.pinned);
-  const recent = snapshot.projects.filter((project) => !project.pinned).slice(0, 6);
-  const projectLink = (project: ProjectView) => <button
-    key={project.path}
-    className={`project-shortcut ${page === "projects" && selectedPath === project.path ? "selected" : ""}`}
-    title={project.path}
-    onClick={() => onSelect(project)}
-  ><FolderIcon /><span>{project.name}</span></button>;
-  return <>
-    <nav className="icon-rail" aria-label="Quick navigation">
-      <img className="rail-brand" src={appIcon} alt="Crown" />
-      <button className={`rail-button ${page === "projects" ? "selected" : ""}`} aria-label="Projects" title="Projects" aria-current={page === "projects" ? "page" : undefined} onClick={() => onPage("projects")}><FolderIcon /></button>
-      <button className={`rail-button ${page === "samples" ? "selected" : ""}`} aria-label="Samples" title="Samples" aria-current={page === "samples" ? "page" : undefined} onClick={() => onPage("samples")}><DiamondIcon /></button>
-      <button className="rail-button rail-settings" aria-label="Settings" title="Settings" onClick={onSettings}><SettingsIcon /></button>
+  const editorStatus = snapshot.editor.ready ? "Ready to launch" : "Setup required";
+  return <aside className="sidebar" aria-label="Sidebar">
+    <img className="sidebar-brand" src={appIcon} alt="Crown" />
+    <nav className="nav-top" aria-label="Workspace">
+      <NavItem selected={page === "projects"} label="Projects" icon={<FolderIcon />} onClick={() => onPage("projects")} />
+      <NavItem selected={page === "samples"} label="Samples" icon={<DiamondIcon />} onClick={() => onPage("samples")} />
+      <NavItem selected={page === "build"} label="Build" icon={<BuildIcon />} onClick={() => onPage("build")} />
     </nav>
-    <aside className="sidebar">
-      <div className="sidebar-brand"><strong>Crown</strong><span>Launcher</span></div>
-      <nav className="nav-top" aria-label="Workspace">
-        <NavItem selected={page === "projects"} label="Projects" icon={<FolderIcon />} onClick={() => onPage("projects")} />
-        <NavItem selected={page === "samples"} label="Samples" icon={<DiamondIcon />} onClick={() => onPage("samples")} />
-      </nav>
-      <div className="sidebar-projects">
-        {pinned.length > 0 && <section className="shortcut-group"><h2>Pinned</h2>{pinned.map(projectLink)}</section>}
-        <section className="shortcut-group"><h2>Projects</h2>{recent.map(projectLink)}
-          {snapshot.projects.length === 0 && <p className="sidebar-hint">Your projects will appear here.</p>}
-          {recent.length === 0 && pinned.length > 0 && <p className="sidebar-hint">All your projects are pinned.</p>}
-        </section>
-      </div>
-      <button className="editor-connection" title={snapshot.editor.executable || "Choose your Editor installation"} onClick={onSettings}>
-        <i className={snapshot.editor.ready ? "connected" : ""} />
-        <span><strong>CrownEditor</strong><small>{snapshot.editor.ready ? "Ready to launch" : "Setup required"}</small></span>
-        <SettingsIcon />
-      </button>
-    </aside>
-  </>;
+    <div className="sidebar-footer">
+      <NavItem selected={false} label="Settings" description={`CrownEditor · ${editorStatus}`} onClick={onSettings}
+        icon={<span className="settings-mark"><SettingsIcon /><i className={snapshot.editor.ready ? "connected" : ""} aria-hidden="true" /></span>} />
+    </div>
+  </aside>;
 }
 
 export function ProjectRow({ project, selected, onSelect, onOpen, onPin }: {
@@ -543,9 +522,9 @@ export function App() {
   return <div className={`app-shell ${maximized ? "maximized" : ""}`}>
     <TitleBar maximized={maximized} />
     <div className="workspace" inert={dialog !== null}>
-      <Sidebar page={page} snapshot={snapshot} selectedPath={selectedPath} onPage={setPage} onSelect={(project) => { setPage("projects"); setSearch(""); setSelectedPath(project.path); }} onSettings={() => setDialog("settings")} />
+      <Sidebar page={page} snapshot={snapshot} onPage={setPage} onSettings={() => setDialog("settings")} />
       <section className="content">
-        {loading ? <div className="loading-state">Loading projects…</div> : page === "projects" ? <ProjectsPage
+        {page === "build" ? <WorkbenchPage /> : loading ? <div className="loading-state">Loading projects…</div> : page === "projects" ? <ProjectsPage
           snapshot={snapshot}
           selected={selected}
           projectSize={selectedProjectSize}

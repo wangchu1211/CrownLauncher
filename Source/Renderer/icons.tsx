@@ -2,6 +2,10 @@ import type { SVGProps } from "react";
 
 type IconProps = SVGProps<SVGSVGElement>;
 
+export function BuildIcon(props: IconProps) {
+  return <svg viewBox="0 0 16 16" aria-hidden="true" {...props}><path d="m2.5 13.5 5-5M6 3l2-1 5 5-1 2-2-1-2 2-2-2 2-2zM11 3l2 2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
 export function FolderIcon(props: IconProps) {
   return <svg viewBox="0 0 16 16" aria-hidden="true" {...props}><path d="M1.75 4.25h4l1.2 1.5h7.3v7.5H1.75zM1.75 4.25V2.8h4.3l1.2 1.45" /></svg>;
 }

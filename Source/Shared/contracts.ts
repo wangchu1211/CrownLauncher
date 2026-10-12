@@ -1,3 +1,5 @@
+import type { WorkbenchHost } from "./workbench";
+
 export type ProjectHealth = "ready" | "missing" | "invalid";
 
 export interface ProjectView {
@@ -77,6 +79,7 @@ export type Result<T> =
   | { ok: false; error: string };
 
 export interface CrownHost {
+  workbench: WorkbenchHost;
   launcher: {
     getSnapshot(): Promise<Result<LauncherSnapshot>>;
     importProject(): Promise<Result<ProjectView | null>>;

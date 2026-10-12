@@ -86,6 +86,16 @@ Windows 路径或 Node API 存在。项目领域模型和 UI 组件可以复用�
 - `CROWN_LAUNCHER_REGISTRY_PATH` 继续作为测试隔离入口；
 - `CROWN_EDITOR_EXECUTABLE` 继续作为进程级 Editor 覆盖值。
 
+## CBT 构建工作台
+
+Build 页面通过 `crownHost.workbench` 白名单接口调用 Main 的 `WorkbenchService`。
+Main 校验工作区、任务 ID、Target、配置、Features 和 jobs，不接受任意 shell 字符串。
+CBT 提供版本化 JSON 能力、图摘要、任务历史和控制接口；Renderer 不解析普通日志来猜测
+成功。连接与构建使用公开 bootstrap，历史查询使用工作区中已验证路径的不可变 Tool runtime。
+
+任务及进程归 CBT supervisor 所有，关闭 Launcher 不结束 UI 发起的后台任务。只有显式
+Cancel 才取消所选任务；Main 不按进程名杀 Editor。完整合同与范围见 [构建工作台](../build-workbench.md)。
+
 ## 版本管理扩展点
 
 MVP 仍只解析一个当前 Editor。`EditorInstallResolver` 输出稳定的 `EditorInstall`，打开
