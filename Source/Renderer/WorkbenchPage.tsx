@@ -2,35 +2,37 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Result } from "../Shared/contracts";
 import type { BuildCapabilities, BuildDescription, BuildJobView, BuildRequest } from "../Shared/workbench";
 import { FolderIcon, RefreshIcon } from "./icons";
+import { buildOrigins, buildPhases, buildStates, featureDescription, taskDiagnostic } from "./workbenchLabels";
+import { BuildTargetPicker } from "./BuildTargetPicker";
+import { defaultBuildTarget, targetWarning } from "./buildTargets";
 import "./workbench.css";
 
 function unwrap<T>(result: Result<T>): T { if (!result.ok) throw new Error(result.error); return result.value; }
 const message = (error: unknown) => error instanceof Error ? error.message : String(error);
 const active = (job: BuildJobView) => job.job.state === "queued" || job.job.state === "running";
-const phases: Record<string, string> = { planning: "Resolving build graph", "waiting-for-lock": "Waiting for CBT build lock", preparing: "Preparing dependencies and tools", validating: "Validating inputs and cache", building: "Compiling and linking", publishing: "Verifying and publishing", "running-product": "Product running" };
-function time(value: string | null) { return value ? new Date(value).toLocaleString() : "—"; }
+function time(value: string | null) { return value ? new Date(value).toLocaleString("zh-CN") : "—"; }
 
 export function BuildTaskDetails({ entry, onCancel, onReveal }: { entry: BuildJobView | null; onCancel: () => void; onReveal: (item: "log" | "artifact") => void }) {
   const logRef = useRef<HTMLPreElement>(null);
   const follow = useRef(true);
   useEffect(() => { if (follow.current && logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [entry?.log]);
   useEffect(() => { follow.current = true; }, [entry?.job.id]);
-  if (!entry) return <section className="build-task build-no-task"><FolderIcon /><h2>No build selected</h2><p>Choose a workspace and configuration, then start a build.</p><p>CLI builds from this workspace appear here too.</p></section>;
+  if (!entry) return <section className="build-task build-no-task"><FolderIcon /><h2>尚未选择构建任务</h2><p>选择工作区和配置，然后开始构建。</p><p>此工作区通过 CLI 发起的构建也会显示在这里。</p></section>;
   const { job, progress, result } = entry;
   const end = active(entry) ? Date.now() : new Date(job.finishedAt || job.heartbeatAt || job.createdAt).getTime();
   const elapsed = Math.max(0, Math.floor((end - new Date(job.startedAt || job.createdAt).getTime()) / 1000));
-  const duration = elapsed >= 60 ? `${Math.floor(elapsed / 60)}m ${elapsed % 60}s` : `${elapsed}s`;
+  const duration = elapsed >= 60 ? `${Math.floor(elapsed / 60)} 分 ${elapsed % 60} 秒` : `${elapsed} 秒`;
   return <section className="build-task">
-    <header className="build-task-heading"><div><div className="build-eyebrow">{job.origin === "cli" ? "COMMAND LINE" : "LAUNCHER"} · {job.command === "run" ? "BUILD & RUN" : "BUILD"}</div><h2>{job.target}</h2></div><span className={`build-status ${job.state}`}>{job.state}</span>{active(entry) && <button className="button" disabled={entry.cancellationRequested} onClick={onCancel}>{entry.cancellationRequested ? "Cancelling…" : "Cancel task"}</button>}</header>
-    <div className="build-task-meta"><span>{job.platform} / {job.configuration}</span><span>{duration}</span><span title={job.source.commit}>{job.source.branch || "Detached / unknown"} · {job.source.commit.slice(0, 8) || "unknown"}</span>{job.source.dirty && <span className="build-dirty">Uncommitted changes</span>}</div>
-    <div className="build-phase"><i className={active(entry) ? "active" : ""} /><span>{active(entry) ? (phases[progress?.phase || ""] || "Starting CBT task") : job.state === "succeeded" ? "Task completed" : job.state === "cancelled" ? "Task cancelled" : job.state === "interrupted" ? "Task interrupted" : "Task failed"}</span>{progress && active(entry) && progress.target !== job.target && <small>{progress.target}</small>}</div>
-    <div className="build-evidence"><div><small>BUILD</small><strong>{result ? "Verified build" : active(entry) ? "In progress" : "Not verified"}</strong></div><div><small>AUTOMATED TESTS</small><strong>Not run</strong></div><div><small>HUMAN ACCEPTANCE</small><strong>Pending</strong></div></div>
-    {progress?.plannedActions != null && <p className="build-counts">{progress.target}: {progress.plannedActions} planned actions{progress.invalidatedActions != null ? ` · ${progress.invalidatedActions} invalidated receipts` : ""}. This is a plan count, not a completed percentage.</p>}
-    {job.error && <div className="build-error" role="alert">{job.error}</div>}
-    {progress?.phase === "running-product" && active(entry) && <p className="build-notice">The product is running. This task completes when it exits; cancellation also stops this task’s product process.</p>}
-    <div className="build-log-heading"><span>Live output <small>Latest 64 KiB</small></span><button className="button" onClick={() => onReveal("log")}>Log file</button>{result && <button className="button" onClick={() => onReveal("artifact")}>Artifact folder</button>}</div>
-    <pre className="build-log" ref={logRef} tabIndex={0} aria-label="Build output" onScroll={event => { const element = event.currentTarget; follow.current = element.scrollHeight - element.scrollTop - element.clientHeight < 40; }}>{entry.log || (active(entry) ? "Waiting for CBT output…" : "No output was recorded.")}</pre>
-    <details className="build-record"><summary>Task record and provenance</summary><dl><dt>Task</dt><dd>{job.id}</dd><dt>Created</dt><dd>{time(job.createdAt)}</dd><dt>Finished</dt><dd>{time(job.finishedAt)}</dd><dt>Features</dt><dd>{Object.entries(job.features).map(([name, value]) => `${name}=${value}`).join(" · ")}</dd><dt>Artifact</dt><dd>{result?.artifact || "None"}</dd><dt>Graph</dt><dd>{result?.buildGraphFingerprint || "Not recorded"}</dd></dl><p>Artifacts are shared CBT output. A later build may replace them. Build & Run always asks CBT to validate current inputs; it does not launch an old executable from history.</p>{job.source.dirty && <p>This source tree contained uncommitted changes and was not frozen as a reproducible snapshot.</p>}</details>
+    <header className="build-task-heading"><div><div className="build-eyebrow">{buildOrigins[job.origin]} · {job.command === "run" ? "构建并运行" : "构建"}</div><h2>{job.target}</h2></div><span className={`build-status ${job.state}`}>{buildStates[job.state]}</span>{active(entry) && <button className="button" disabled={entry.cancellationRequested} onClick={onCancel}>{entry.cancellationRequested ? "正在取消…" : "取消任务"}</button>}</header>
+    <div className="build-task-meta"><span>{job.platform} / {job.configuration}</span><span>{duration}</span><span title={job.source.commit}>{job.source.branch || "分离 HEAD / 未知分支"} · {job.source.commit.slice(0, 8) || "未知提交"}</span>{job.source.dirty && <span className="build-dirty">有未提交的修改</span>}</div>
+    <div className="build-phase"><i className={active(entry) ? "active" : ""} /><span>{active(entry) ? (buildPhases[progress?.phase || ""] || progress?.phase || "正在启动 CBT 任务") : job.state === "succeeded" ? "任务已完成" : job.state === "cancelled" ? "任务已取消" : job.state === "interrupted" ? "任务已中断" : "任务失败"}</span>{progress && active(entry) && progress.target !== job.target && <small>{progress.target}</small>}</div>
+    <div className="build-evidence"><div><small>构建结果</small><strong>{result ? "构建已验证" : active(entry) ? "构建中" : "未验证"}</strong></div><div><small>自动测试</small><strong>未运行</strong></div><div><small>人工验收</small><strong>待验收</strong></div></div>
+    {progress?.plannedActions != null && <p className="build-counts">{progress.target}：计划执行 {progress.plannedActions} 项操作{progress.invalidatedActions != null ? ` · ${progress.invalidatedActions} 项缓存凭据失效` : ""}。这是计划数量，不代表完成百分比。</p>}
+    {job.error && <div className="build-error" role="alert" title={job.error}>{taskDiagnostic(job.error)}</div>}
+    {progress?.phase === "running-product" && active(entry) && <p className="build-notice">程序正在运行，退出后任务才会结束。取消任务也会停止本任务启动的程序。</p>}
+    <div className="build-log-heading"><span>实时日志 <small>最近 64 KiB</small></span><button className="button" onClick={() => onReveal("log")}>日志文件</button>{result && <button className="button" onClick={() => onReveal("artifact")}>产物目录</button>}</div>
+    <pre className="build-log" ref={logRef} tabIndex={0} aria-label="构建日志" onScroll={event => { const element = event.currentTarget; follow.current = element.scrollHeight - element.scrollTop - element.clientHeight < 40; }}>{entry.log || (active(entry) ? "等待 CBT 输出…" : "未记录到日志输出。")}</pre>
+    <details className="build-record"><summary>任务记录与来源</summary><dl><dt>任务 ID</dt><dd>{job.id}</dd><dt>创建时间</dt><dd>{time(job.createdAt)}</dd><dt>结束时间</dt><dd>{time(job.finishedAt)}</dd><dt>功能开关</dt><dd>{Object.entries(job.features).map(([name, value]) => `${name}=${value}`).join(" · ")}</dd><dt>构建产物</dt><dd>{result?.artifact || "无"}</dd><dt>构建图指纹</dt><dd>{result?.buildGraphFingerprint || "未记录"}</dd></dl><p>产物位于 CBT 共享输出目录，后续构建可能覆盖它们。“构建并运行”会先让 CBT 校验当前输入，不会直接启动历史任务中的旧程序。</p>{job.source.dirty && <p>本次源码含有未提交的修改，未保存为可复现的固定快照。</p>}</details>
   </section>;
 }
 
@@ -43,7 +45,7 @@ export function WorkbenchPage() {
   const [platform, setPlatform] = useState("");
   const [features, setFeatures] = useState<Record<string, string>>({});
   const [jobs, setJobs] = useState(4);
-  const [busy, setBusy] = useState("");
+  const [busy, setBusy] = useState<"" | "connecting" | "starting">("");
   const [error, setError] = useState("");
   const [pollError, setPollError] = useState("");
   const [history, setHistory] = useState<BuildJobView[]>([]);
@@ -58,11 +60,11 @@ export function WorkbenchPage() {
 
   const connect = useCallback(async (root: string) => {
     const attempt = ++connectionId.current;
-    setBusy("Connecting to CBT…"); setError(""); setCapabilities(null); setEntry(null); setHistory([]); setSelectedId(""); setDescription(null); setConfirmRun(false);
+    setBusy("connecting"); setError(""); setCapabilities(null); setEntry(null); setHistory([]); setSelectedId(""); setDescription(null); setConfirmRun(false);
     try {
       const value = unwrap(await window.crownHost.workbench.connect(root));
       if (connectionId.current !== attempt) return;
-      setCapabilities(value); setWorkspace(value.workspace); setTarget(value.targets.find(item => item.name === "CrownEditor")?.name || value.targets[0]?.name || "");
+      setCapabilities(value); setWorkspace(value.workspace); setTarget(defaultBuildTarget(value.targets));
       setConfiguration(value.configurations.find(item => item === "Shipping") || value.configurations[0] || ""); setPlatform(value.platforms[0] || "");
       setFeatures(Object.fromEntries(value.features.map(feature => [feature.name, feature.defaultValue])));
       setKnown(previous => [value.workspace, ...previous.filter(item => item !== value.workspace)]);
@@ -116,7 +118,7 @@ export function WorkbenchPage() {
   }, [capabilities, selectedId]);
 
   const start = async (operation: "build" | "run") => {
-    setBusy("Starting task…"); setError(""); setConfirmRun(false);
+    setBusy("starting"); setError(""); setConfirmRun(false);
     try { const result = unwrap(await window.crownHost.workbench.start({ ...request, operation })); setSelectedId(result.jobId); setEntry(null); }
     catch (cause) { setError(message(cause)); } finally { setBusy(""); }
   };
@@ -131,25 +133,25 @@ export function WorkbenchPage() {
   };
   const ready = capabilities && workspace === capabilities.workspace && description?.key === requestKey && !descriptionError && !busy;
   const capability = capabilities?.targets.find(item => item.name === target);
-  return <main className="workbench-page">
-    <header className="page-heading"><div><h1>Build</h1><p>Your workspace, configuration and build results. Powered by CBT.</p></div><span className="build-engine-tag">Crown Build Tool</span></header>
-    <div className="build-workspace"><FolderIcon /><input className="text-field" aria-label="Source workspace" list="build-workspaces" placeholder="Choose a CrownEngine source workspace…" value={workspace} disabled={Boolean(busy)} onChange={event => setWorkspace(event.target.value)} /><datalist id="build-workspaces">{known.map(root => <option key={root} value={root} />)}</datalist><button className="button" disabled={Boolean(busy)} onClick={() => void window.crownHost.workbench.chooseWorkspace().then(result => { const root = unwrap(result); if (root) { setWorkspace(root); void connect(root); } }).catch(cause => setError(message(cause)))}>Browse</button><button className="button" disabled={Boolean(busy) || !workspace.trim()} onClick={() => void connect(workspace)}><RefreshIcon />{busy.startsWith("Connecting") ? "Connecting…" : capabilities ? "Reconnect" : "Connect"}</button></div>
-    {error && <div className="build-error" role="alert">{error}<button aria-label="Dismiss build error" onClick={() => setError("")}>×</button></div>}
-    {pollError && <div className="build-error" role="alert">Status unavailable: {pollError}. Last displayed information may be stale.</div>}
-    {capabilities && workspace !== capabilities.workspace && <p className="build-notice">History below belongs to {capabilities.workspace}. Connect the edited path before building there.</p>}
-    {!capabilities ? <section className="build-welcome"><h2>{busy || "Connect your source workspace"}</h2><p>Choose the CrownEngine folder containing CrownBuild.ps1. Only connect source trees you trust: CBT compiles and executes their build rules.</p><p>Connecting queries targets and configurations; it does not build the engine or run Standard.</p></section> : <div className="build-layout">
-      <aside className="build-sidebar"><section className="build-config"><div className="build-config-fields"><h2>Configuration</h2><div className="build-source"><span>{capabilities.source.branch || "Detached HEAD"}</span><code>{capabilities.source.commit.slice(0, 8)}</code>{capabilities.source.dirty && <small>Uncommitted changes</small>}</div>
-        <label htmlFor="build-target">Target</label><select id="build-target" className="text-field" value={target} onChange={event => setTarget(event.target.value)}>{capabilities.targets.map(item => <option key={item.name} value={item.name}>{item.name} · {item.kind}</option>)}</select>
-        <div className="build-field-grid"><div><label htmlFor="build-configuration">Configuration</label><select id="build-configuration" className="text-field" value={configuration} onChange={event => setConfiguration(event.target.value)}>{capabilities.configurations.map(value => <option key={value}>{value}</option>)}</select></div><div><label htmlFor="build-jobs">Parallel jobs</label><input id="build-jobs" className="text-field" type="number" min={1} max={64} value={jobs} onChange={event => setJobs(Number(event.target.value))} /></div></div>
-        <label htmlFor="build-platform">Platform</label><select id="build-platform" className="text-field" value={platform} onChange={event => setPlatform(event.target.value)}>{capabilities.platforms.map(value => <option key={value}>{value}</option>)}</select>
-        <details className="build-features"><summary>Features <small>{Object.values(features).filter(value => value === "true").length} / {capabilities.features.length} enabled</small></summary>{capabilities.features.map(feature => <label className="build-feature" key={feature.name}><input type="checkbox" checked={features[feature.name] === "true"} onChange={event => setFeatures(previous => ({ ...previous, [feature.name]: String(event.target.checked) }))} /><span><strong>{feature.name}</strong><small>{feature.description}</small></span></label>)}</details>
-        {descriptionError ? <p className="build-inline-error">{descriptionError}</p> : description?.key === requestKey ? <details className="build-plan"><summary>{description.value.modules.length} modules · {description.value.modules.reduce((sum, module) => sum + module.sources, 0)} source entries</summary><p>CBT determines reuse and rebuilds during input validation. Selecting a configuration does not prepare dependencies.</p><ul>{description.value.modules.map(module => <li key={module.name}>{module.name}<span>{module.sources}</span></li>)}</ul></details> : <p className="build-plan-pending">Resolving configuration…</p>}
-        </div><div className="build-start-actions"><button className="button button-accent" disabled={!ready} onClick={() => void start("build")}>{busy === "Starting task…" ? "Starting…" : "Build"}</button><button className="button" disabled={!ready || !capability?.canRun} onClick={() => setConfirmRun(true)}>Build & Run</button></div>
-        {confirmRun && <div className="build-run-confirm"><p>Build and launch {target} using this configuration. The task stays active until the product exits. Cancelling it also stops the launched product.</p><button className="button button-accent" disabled={!ready} onClick={() => void start("run")}>Start</button><button className="button" onClick={() => setConfirmRun(false)}>Back</button></div>}
-        <p className="build-policy">No automatic Standard or other test profile. Builds and tests are separate results.</p>
-      </section><section className="build-history"><h2>Task history <small>{history.length}</small></h2>{history.length === 0 && <p>No recorded builds in this workspace.</p>}{history.map(item => <button className={`build-history-item ${item.job.id === selectedId ? "selected" : ""}`} key={item.job.id} onClick={() => { setSelectedId(item.job.id); setEntry(item); }}><span><strong>{item.job.target}</strong><small>{item.job.configuration} · {item.job.origin.toUpperCase()}</small></span><i className={`build-status ${item.job.state}`}>{item.job.state}</i></button>)}</section></aside>
+  return <main className="workbench-page" lang="zh-CN">
+    <header className="page-heading"><div><h1>构建工作台</h1><p>管理工作区、构建配置与结果，由 CBT 驱动。</p></div><span className="build-engine-tag">Crown Build Tool</span></header>
+    <div className="build-workspace"><FolderIcon /><input className="text-field" aria-label="源码工作区" list="build-workspaces" placeholder="选择 CrownEngine 源码工作区…" value={workspace} disabled={Boolean(busy)} onChange={event => setWorkspace(event.target.value)} /><datalist id="build-workspaces">{known.map(root => <option key={root} value={root} />)}</datalist><button className="button" disabled={Boolean(busy)} onClick={() => void window.crownHost.workbench.chooseWorkspace().then(result => { const root = unwrap(result); if (root) { setWorkspace(root); void connect(root); } }).catch(cause => setError(message(cause)))}>浏览</button><button className="button" disabled={Boolean(busy) || !workspace.trim()} onClick={() => void connect(workspace)}><RefreshIcon />{busy === "connecting" ? "连接中…" : capabilities ? "重新连接" : "连接"}</button></div>
+    {error && <div className="build-error" role="alert">{error}<button aria-label="关闭构建错误提示" onClick={() => setError("")}>×</button></div>}
+    {pollError && <div className="build-error" role="alert">无法更新任务状态，当前显示的信息可能已过时。{ "\n" }{pollError}</div>}
+    {capabilities && workspace !== capabilities.workspace && <p className="build-notice">下方历史记录属于 {capabilities.workspace}。请先连接修改后的路径，再在新工作区构建。</p>}
+    {!capabilities ? <section className="build-welcome"><h2>{busy === "connecting" ? "正在连接 CBT…" : "连接源码工作区"}</h2><p>选择包含 CrownBuild.ps1 的 CrownEngine 目录。请仅连接可信的源码：CBT 会编译并执行其中的构建规则。</p><p>连接只会查询目标与配置，不会构建引擎或运行 Standard。</p></section> : <div className="build-layout">
+      <aside className="build-sidebar"><section className="build-config"><div className="build-config-fields"><h2>构建配置</h2><div className="build-source"><span>{capabilities.source.branch || "分离 HEAD"}</span><code>{capabilities.source.commit.slice(0, 8)}</code>{capabilities.source.dirty && <small>有未提交的修改</small>}</div>
+        <BuildTargetPicker targets={capabilities.targets} selected={target} onSelect={setTarget} />
+        <div className="build-field-grid"><div><label htmlFor="build-configuration">配置</label><select id="build-configuration" className="text-field" value={configuration} onChange={event => setConfiguration(event.target.value)}>{capabilities.configurations.map(value => <option key={value}>{value}</option>)}</select></div><div><label htmlFor="build-jobs">并行任务数</label><input id="build-jobs" className="text-field" type="number" min={1} max={64} value={jobs} onChange={event => setJobs(Number(event.target.value))} /></div></div>
+        <label htmlFor="build-platform">平台</label><select id="build-platform" className="text-field" value={platform} onChange={event => setPlatform(event.target.value)}>{capabilities.platforms.map(value => <option key={value}>{value}</option>)}</select>
+        <details className="build-features"><summary>功能开关 <small>已启用 {Object.values(features).filter(value => value === "true").length} / {capabilities.features.length}</small></summary>{capabilities.features.map(feature => <label className="build-feature" key={feature.name}><input type="checkbox" checked={features[feature.name] === "true"} onChange={event => setFeatures(previous => ({ ...previous, [feature.name]: String(event.target.checked) }))} /><span><strong>{feature.name}</strong><small>{featureDescription(feature.description)}</small></span></label>)}</details>
+        {descriptionError ? <p className="build-inline-error">{descriptionError}</p> : description?.key === requestKey ? <details className="build-plan"><summary>{description.value.modules.length} 个模块 · {description.value.modules.reduce((sum, module) => sum + module.sources, 0)} 个源文件条目</summary><p>CBT 会在校验输入时决定复用缓存或重新构建。选择配置不会开始准备依赖。</p><ul>{description.value.modules.map(module => <li key={module.name}>{module.name}<span>{module.sources}</span></li>)}</ul></details> : <p className="build-plan-pending">正在解析配置…</p>}
+        </div><div className="build-start-actions"><button className="button button-accent" disabled={!ready} onClick={() => void start("build")}>{busy === "starting" ? "启动中…" : "构建"}</button><button className="button" disabled={!ready || !capability?.canRun} onClick={() => setConfirmRun(true)}>构建并运行</button></div>
+        {confirmRun && <div className="build-run-confirm"><p>按当前配置构建并启动 {target}。程序退出后任务才会结束，取消任务也会停止它启动的程序。</p>{capability && targetWarning(capability) && <p className="target-warning">{targetWarning(capability)}</p>}<button className="button button-accent" disabled={!ready} onClick={() => void start("run")}>开始</button><button className="button" onClick={() => setConfirmRun(false)}>返回</button></div>}
+        <p className="build-policy">不会自动运行 Standard 或其他测试。构建与测试结果分别记录。</p>
+      </section><section className="build-history"><h2>任务历史 <small>{history.length}</small></h2>{history.length === 0 && <p>此工作区暂无构建记录。</p>}{history.map(item => <button className={`build-history-item ${item.job.id === selectedId ? "selected" : ""}`} key={item.job.id} onClick={() => { setSelectedId(item.job.id); setEntry(item); }}><span><strong>{item.job.target}</strong><small>{item.job.configuration} · {buildOrigins[item.job.origin]}</small></span><i className={`build-status ${item.job.state}`}>{buildStates[item.job.state]}</i></button>)}</section></aside>
       <BuildTaskDetails entry={entry} onCancel={() => void cancel()} onReveal={item => void reveal(item)} />
     </div>}
-    <footer className="build-footer">Tasks keep running when Launcher closes. Reopen this workspace to follow them. Cancel only stops the selected task.</footer>
+    <footer className="build-footer">Launcher 发起的任务在窗口关闭后仍会运行，重新打开此工作区即可继续查看。取消操作仅停止选中的任务。</footer>
   </main>;
 }

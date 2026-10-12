@@ -115,7 +115,7 @@ export function Sidebar({ page, snapshot, onPage, onSettings }: {
     <nav className="nav-top" aria-label="Workspace">
       <NavItem selected={page === "projects"} label="Projects" icon={<FolderIcon />} onClick={() => onPage("projects")} />
       <NavItem selected={page === "samples"} label="Samples" icon={<DiamondIcon />} onClick={() => onPage("samples")} />
-      <NavItem selected={page === "build"} label="Build" icon={<BuildIcon />} onClick={() => onPage("build")} />
+      <NavItem selected={page === "build"} label="构建" icon={<BuildIcon />} onClick={() => onPage("build")} />
     </nav>
     <div className="sidebar-footer">
       <NavItem selected={false} label="Settings" description={`CrownEditor · ${editorStatus}`} onClick={onSettings}

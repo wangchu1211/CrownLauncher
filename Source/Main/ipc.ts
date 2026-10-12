@@ -50,7 +50,7 @@ function parseCreateSample(value: unknown): CreateSampleInput {
 export function registerIpc(window: BrowserWindow, service: LauncherService, workbench: WorkbenchService): void {
   ipcMain.handle("workbench:workspaces", () => result(() => workbench.workspaces()));
   ipcMain.handle("workbench:choose-workspace", () => result(async () => {
-    const selection = await dialog.showOpenDialog(window, { title: "Choose CrownEngine source workspace", properties: ["openDirectory", "dontAddToRecent"] });
+    const selection = await dialog.showOpenDialog(window, { title: "选择 CrownEngine 源码工作区", buttonLabel: "选择工作区", properties: ["openDirectory", "dontAddToRecent"] });
     return selection.canceled ? null : selection.filePaths[0] ?? null;
   }));
   ipcMain.handle("workbench:connect", (_event, value: unknown) => result(() => workbench.connect(requireText(value, "Workspace"))));
@@ -60,7 +60,7 @@ export function registerIpc(window: BrowserWindow, service: LauncherService, wor
   ipcMain.handle("workbench:job", (_event, workspace: unknown, id: unknown) => result(() => workbench.job(requireText(workspace, "Workspace"), requireText(id, "Task ID"))));
   ipcMain.handle("workbench:cancel", (_event, workspace: unknown, id: unknown) => result(() => workbench.cancel(requireText(workspace, "Workspace"), requireText(id, "Task ID"))));
   ipcMain.handle("workbench:reveal", (_event, workspace: unknown, id: unknown, item: unknown) => result(async () => {
-    if (item !== "log" && item !== "artifact") throw new Error("Unsupported task output.");
+    if (item !== "log" && item !== "artifact") throw new Error("不支持的任务输出类型。");
     shell.showItemInFolder(await workbench.revealPath(requireText(workspace, "Workspace"), requireText(id, "Task ID"), item));
   }));
   ipcMain.handle("launcher:get-snapshot", () => result(() => service.snapshot()));

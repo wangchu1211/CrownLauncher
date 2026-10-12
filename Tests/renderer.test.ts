@@ -41,14 +41,14 @@ describe("Launcher presentation", () => {
     }));
     expect(html.match(/<nav\b/g)).toHaveLength(1);
     expect(html.match(/<button\b/g)).toHaveLength(4);
-    for (const label of ["Projects", "Samples", "Build", "Settings"]) {
+    for (const label of ["Projects", "Samples", "构建", "Settings"]) {
       expect(html.match(new RegExp(`aria-label="${label}"`, "g"))).toHaveLength(1);
       expect(html).toContain(`class="nav-tooltip" aria-hidden="true">${label}`);
     }
     // Use one styled tooltip, not a second delayed native title tooltip.
     expect(html).not.toContain('title="');
     expect(html.match(/aria-current="page"/g)).toHaveLength(1);
-    expect(html).toContain(`aria-label="${page[0]!.toUpperCase() + page.slice(1)}" aria-current="page"`);
+    expect(html).toContain(`aria-label="${page === "build" ? "构建" : page[0]!.toUpperCase() + page.slice(1)}" aria-current="page"`);
     expect(html).not.toContain("sidebar-projects");
     expect(html).not.toContain("sidebar-toggle");
     expect(html).not.toContain(project.name);
@@ -71,7 +71,7 @@ describe("Launcher presentation", () => {
       expect(matching[0]!.props.onClick).toBeTypeOf("function");
       matching[0]!.props.onClick!();
     };
-    for (const label of ["Projects", "Samples", "Build"]) click(node => node.props.label === label);
+    for (const label of ["Projects", "Samples", "构建"]) click(node => node.props.label === label);
     expect(onPage.mock.calls).toEqual([["projects"], ["samples"], ["build"]]);
     expect(onSettings).not.toHaveBeenCalled();
     click(node => node.props.label === "Settings");

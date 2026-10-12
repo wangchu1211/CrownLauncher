@@ -17,9 +17,9 @@ const execute: Query = async (executable, args, cwd, timeout) => {
 
 export function parseProtocol<T>(output: string): T {
   let value: unknown;
-  try { value = JSON.parse(output.replace(/^\uFEFF/, "")); } catch { throw new Error("CBT did not return structured workbench data. Update CBT in this workspace, then reconnect.\n" + output.slice(-2000)); }
+  try { value = JSON.parse(output.replace(/^\uFEFF/, "")); } catch { throw new Error("CBT 未返回结构化工作台数据。请更新此工作区的 CBT，然后重新连接。\n" + output.slice(-2000)); }
   if (!value || typeof value !== "object" || (value as { schemaVersion?: unknown }).schemaVersion !== 1) {
-    throw new Error("Unsupported CBT workbench schema. Reconnect after updating Launcher and CBT.");
+    throw new Error("不支持此 CBT 工作台数据格式，请更新 Launcher 和 CBT 后重新连接。");
   }
   return value as T;
 }
@@ -31,15 +31,15 @@ export function validateBuildRequest(input: unknown, capabilities: BuildCapabili
     typeof request.configuration !== "string" || !capabilities.configurations.includes(request.configuration) ||
     typeof request.platform !== "string" || !capabilities.platforms.includes(request.platform) ||
     !Number.isInteger(request.jobs) || request.jobs! < 1 || request.jobs! > 64 ||
-    (request.operation !== "build" && request.operation !== "run")) { throw new Error("Choose a supported workspace, Target, configuration, platform and job count (1–64)."); }
-  if (request.operation === "run" && !capabilities.targets.find(target => target.name === request.target)?.canRun) { throw new Error("This Target cannot be run."); }
-  if (!request.features || typeof request.features !== "object" || Array.isArray(request.features)) { throw new Error("Invalid Feature selection."); }
+    (request.operation !== "build" && request.operation !== "run")) { throw new Error("请选择支持的工作区、构建目标、配置和平台，并将并行任务数设为 1–64。"); }
+  if (request.operation === "run" && !capabilities.targets.find(target => target.name === request.target)?.canRun) { throw new Error("此构建目标不支持运行。"); }
+  if (!request.features || typeof request.features !== "object" || Array.isArray(request.features)) { throw new Error("功能开关选项无效。"); }
   for (const [name, value] of Object.entries(request.features)) {
-    if (!capabilities.features.some(feature => feature.name === name) || (value !== "true" && value !== "false")) { throw new Error("Unsupported Feature option: " + name); }
+    if (!capabilities.features.some(feature => feature.name === name) || (value !== "true" && value !== "false")) { throw new Error("不支持的功能开关选项：" + name); }
   }
   for (const name of capabilities.targets.find(target => target.name === request.target)!.requiredFeatures) {
     const value = request.features[name] ?? capabilities.features.find(feature => feature.name === name)?.defaultValue;
-    if (value !== "true") { throw new Error(request.target + " requires Feature " + name + "."); }
+    if (value !== "true") { throw new Error(request.target + " 需要启用功能开关 " + name + "。"); }
   }
   return request as BuildRequest;
 }
@@ -62,7 +62,7 @@ export class WorkbenchService {
   }
 
   async connect(input: string): Promise<BuildCapabilities> {
-    if (!path.isAbsolute(input)) throw new Error("Choose an absolute CrownEngine source workspace.");
+    if (!path.isAbsolute(input)) throw new Error("请选择 CrownEngine 源码工作区的绝对路径。");
     const root = await realpath(input);
     const pending = this.connecting.get(root);
     if (pending) return pending;
@@ -73,18 +73,18 @@ export class WorkbenchService {
 
   private async connectWorkspace(root: string): Promise<BuildCapabilities> {
     for (const file of ["CrownBuild.ps1", "global.json", "Engine/Build/CBT/CrownBuild.Tool/CrownBuild.Tool.csproj"]) {
-      if (!(await stat(path.join(root, file))).isFile()) throw new Error("Not a CrownEngine source workspace: " + root);
+      if (!(await stat(path.join(root, file))).isFile()) throw new Error("此目录不是 CrownEngine 源码工作区：" + root);
     }
     const shell = path.join(process.env.SystemRoot || "C:/Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
     const response = await this.query(shell, ["-NoLogo", "-NoProfile", "-NonInteractive", "-File", path.join(root, "CrownBuild.ps1"), "workbench", "capabilities"], root, 120000);
     const capabilities = parseProtocol<BuildCapabilities>(response);
     if (typeof capabilities.workspace !== "string" || await realpath(capabilities.workspace) !== root ||
       !Array.isArray(capabilities.targets) || !Array.isArray(capabilities.features) ||
-      !Array.isArray(capabilities.configurations) || !Array.isArray(capabilities.platforms)) { throw new Error("Invalid CBT capabilities."); }
+      !Array.isArray(capabilities.configurations) || !Array.isArray(capabilities.platforms)) { throw new Error("CBT 返回的构建能力信息无效。"); }
     const runtime = capabilities.runtime?.assembly;
-    if (typeof runtime !== "string" || !path.isAbsolute(runtime)) throw new Error("CBT did not publish an immutable tool runtime.");
+    if (typeof runtime !== "string" || !path.isAbsolute(runtime)) throw new Error("CBT 未提供固定版本的工具运行时。");
     const relative = path.relative(root, await realpath(runtime)).replaceAll("\\", "/");
-    if (!/^Build\/CBT\/HostRuntime\/[a-f0-9]{64}\/CrownBuild\.Tool\.dll$/.test(relative)) throw new Error("CBT runtime is outside this workspace's immutable host store.");
+    if (!/^Build\/CBT\/HostRuntime\/[a-f0-9]{64}\/CrownBuild\.Tool\.dll$/.test(relative)) throw new Error("CBT 运行时不在此工作区的固定版本工具存储目录内。");
     capabilities.workspace = root;
     this.connections.set(root, capabilities);
     const known = await this.workspaces();
@@ -94,7 +94,7 @@ export class WorkbenchService {
 
   private connection(workspace: string): BuildCapabilities {
     const value = this.connections.get(workspace);
-    if (!value) throw new Error("Connect this workspace first. No command was started.");
+    if (!value) throw new Error("请先连接此工作区，尚未启动任何命令。");
     return value;
   }
 
@@ -118,7 +118,7 @@ export class WorkbenchService {
   }
   private request(input: unknown): BuildRequest {
     const workspace = (input as Partial<BuildRequest> | null)?.workspace;
-    if (typeof workspace !== "string") throw new Error("Invalid workspace.");
+    if (typeof workspace !== "string") throw new Error("工作区无效。");
     return validateBuildRequest(input, this.connection(workspace));
   }
   async history(workspace: string): Promise<BuildHistory> {
@@ -128,7 +128,7 @@ export class WorkbenchService {
     return { schemaVersion: 1, jobs, warnings };
   }
   private jobId(id: string): string {
-    if (!/^[a-f0-9]{32}$/.test(id)) throw new Error("Invalid task ID.");
+    if (!/^[a-f0-9]{32}$/.test(id)) throw new Error("任务 ID 无效。");
     return id;
   }
   async job(workspace: string, id: string): Promise<BuildJobView> { return this.command(workspace, ["job", "--job-id", this.jobId(id)]); }
@@ -137,11 +137,11 @@ export class WorkbenchService {
     const entry = await this.job(workspace, id);
     const target = item === "log" ? path.join(workspace, "Build/CBT/Workbench/Jobs", id, "output.log")
       : entry.result ? path.resolve(workspace, entry.result.artifact) : null;
-    if (!target) throw new Error("This task has no verified build artifact.");
+    if (!target) throw new Error("此任务没有经过验证的构建产物。");
     const resolved = await realpath(target);
     const buildRoot = await realpath(path.join(workspace, "Build/CBT"));
     const relative = path.relative(buildRoot, resolved);
-    if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("Task output is outside the CBT output directory.");
+    if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("任务输出不在 CBT 输出目录内。");
     return resolved;
   }
 }

@@ -5,7 +5,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseProtocol, requestArguments, validateBuildRequest, WorkbenchService } from "../Source/Main/workbenchService";
-import { BuildTaskDetails } from "../Source/Renderer/WorkbenchPage";
+import { BuildTaskDetails, WorkbenchPage } from "../Source/Renderer/WorkbenchPage";
+import { buildPhases, buildStates, featureDescription, taskDiagnostic } from "../Source/Renderer/workbenchLabels";
 import type { BuildCapabilities, BuildJobView, BuildRequest } from "../Source/Shared/workbench";
 
 const capabilities: BuildCapabilities = {
@@ -26,35 +27,35 @@ afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, {
 describe("workbench contracts", () => {
   it("requires versioned JSON instead of interpreting a successful-looking log", () => {
     expect(parseProtocol('{"schemaVersion":1,"ok":true}')).toEqual({ schemaVersion: 1, ok: true });
-    expect(() => parseProtocol("CBT build ready: artifact=old.exe")).toThrow("structured");
-    expect(() => parseProtocol('{"schemaVersion":2}')).toThrow("Unsupported");
+    expect(() => parseProtocol("CBT build ready: artifact=old.exe")).toThrow("结构化");
+    expect(() => parseProtocol('{"schemaVersion":2}')).toThrow("不支持");
   });
   it("validates all build controls against CBT capabilities", () => {
     expect(validateBuildRequest(request, capabilities)).toEqual(request);
     for (const bad of [{ target: "other" }, { configuration: "Release" }, { platform: "Linux" }, { jobs: 0 }, { jobs: 65 }, { jobs: NaN }, { operation: "clean" }, { workspace: "D:/Other" }, { features: { arbitrary: "true" } }, { features: { Tracy: "a; command" } }]) {
       expect(() => validateBuildRequest({ ...request, ...bad }, capabilities)).toThrow();
     }
-    expect(() => validateBuildRequest({ ...request, operation: "run" }, { ...capabilities, targets: [{ ...capabilities.targets[0]!, canRun: false }] })).toThrow("cannot be run");
-    expect(() => validateBuildRequest(request, { ...capabilities, targets: [{ ...capabilities.targets[0]!, requiredFeatures: ["Tracy"] }] })).toThrow("requires Feature");
+    expect(() => validateBuildRequest({ ...request, operation: "run" }, { ...capabilities, targets: [{ ...capabilities.targets[0]!, canRun: false }] })).toThrow("不支持运行");
+    expect(() => validateBuildRequest(request, { ...capabilities, targets: [{ ...capabilities.targets[0]!, requiredFeatures: ["Tracy"] }] })).toThrow("需要启用功能开关 Tracy");
   });
   it("passes options as argument elements, never a shell command", () => {
     expect(requestArguments(request)).toEqual(["--configuration", "Shipping", "--platform", "Win64", "--jobs", "4", "--feature", "Tracy=false"]);
   });
   it("keeps build verification distinct from tests and human acceptance", () => {
     const html = renderToStaticMarkup(createElement(BuildTaskDetails, { entry, onCancel: () => {}, onReveal: () => {} }));
-    expect(html).toContain("Verified build"); expect(html).toContain("Not run"); expect(html).toContain("Pending"); expect(html).toContain("COMMAND LINE");
-    expect(html).not.toContain("Cancel task");
+    expect(html).toContain("构建已验证"); expect(html).toContain("未运行"); expect(html).toContain("待验收"); expect(html).toContain("命令行");
+    expect(html).not.toContain("取消任务");
     const running = renderToStaticMarkup(createElement(BuildTaskDetails, { entry: { ...entry, job: { ...entry.job, state: "running" }, progress: { phase: "waiting-for-lock", target: request.target, plannedActions: null, invalidatedActions: null } }, onCancel: () => {}, onReveal: () => {} }));
-    expect(running).toContain("Waiting for CBT build lock"); expect(running).toContain("Cancel task");
+    expect(running).toContain("等待 CBT 构建锁"); expect(running).toContain("取消任务");
   });
   it("does not report an interrupted task as a successful build", () => {
     const html = renderToStaticMarkup(createElement(BuildTaskDetails, { entry: { ...entry, result: null, job: { ...entry.job, state: "interrupted", error: "Owner exited" } }, onCancel: () => {}, onReveal: () => {} }));
-    expect(html).toContain("Not verified"); expect(html).toContain("Task interrupted"); expect(html).toContain("Owner exited");
+    expect(html).toContain("未验证"); expect(html).toContain("任务已中断"); expect(html).toContain("Owner exited");
   });
   it("rejects control requests before a trusted workspace is connected", async () => {
     const query = vi.fn(); const service = new WorkbenchService(tmpdir(), query);
-    await expect(service.start(request)).rejects.toThrow("Connect");
-    await expect(service.cancel(request.workspace, "../other")).rejects.toThrow("Invalid task ID");
+    await expect(service.start(request)).rejects.toThrow("请先连接");
+    await expect(service.cancel(request.workspace, "../other")).rejects.toThrow("任务 ID 无效");
     expect(query).not.toHaveBeenCalled();
   });
   it("connects through the public bootstrap and uses only its immutable runtime for queries", async () => {
@@ -75,5 +76,43 @@ describe("workbench contracts", () => {
     expect(query.mock.calls[2]![0]).toContain("powershell.exe");
     expect(query.mock.calls[2]![1]).toContain(path.join(root, "CrownBuild.ps1"));
     expect(query.mock.calls[2]![1]).toContain("start");
+  });
+
+  it("renders Chinese workspace guidance and an accessible source path without starting a build", () => {
+    const html = renderToStaticMarkup(createElement(WorkbenchPage));
+    expect(html).toContain('lang="zh-CN"');
+    for (const text of ["构建工作台", 'aria-label="源码工作区"', "连接源码工作区", "CrownBuild.ps1", "不会构建引擎或运行 Standard", "浏览", "连接"]) expect(html).toContain(text);
+    const empty = renderToStaticMarkup(createElement(BuildTaskDetails, { entry: null, onCancel: () => {}, onReveal: () => {} }));
+    expect(empty).toContain("尚未选择构建任务");
+    expect(empty).toContain("CLI");
+  });
+
+  it.each(Object.entries(buildStates))("localizes the %s status without changing its protocol or CSS value", (state, label) => {
+    const html = renderToStaticMarkup(createElement(BuildTaskDetails, { entry: { ...entry, job: { ...entry.job, state: state as BuildJobView["job"]["state"] } }, onCancel: () => {}, onReveal: () => {} }));
+    expect(html).toContain(`class="build-status ${state}">${label}`);
+    expect(html).toContain("CrownBuildProbe"); expect(html).toContain("Win64 / Shipping"); expect(html).toContain("Tracy=false");
+  });
+
+  it.each(Object.entries(buildPhases))("localizes the %s build phase", (phase, label) => {
+    const html = renderToStaticMarkup(createElement(BuildTaskDetails, { entry: { ...entry, job: { ...entry.job, state: "running" }, progress: { phase, target: request.target, plannedActions: 10, invalidatedActions: 2 } }, onCancel: () => {}, onReveal: () => {} }));
+    expect(html).toContain(label);
+    expect(html).toContain("计划执行 10 项操作"); expect(html).toContain("2 项缓存凭据失效"); expect(html).toContain("不代表完成百分比");
+    if (phase === "running-product") expect(html).toContain("取消任务也会停止本任务启动的程序");
+  });
+
+  it("translates known help and diagnostics while preserving unknown messages and raw output", () => {
+    expect(featureDescription("Managed C# scripting and runtime deployment")).toBe("C# 脚本与运行时部署");
+    expect(featureDescription("Future feature description")).toBe("Future feature description");
+    expect(taskDiagnostic("New compiler error: file.cpp:42")).toBe("New compiler error: file.cpp:42");
+    const log = "Cancelled by request.\nerror C1234: D:/源码/Test.cpp";
+    const html = renderToStaticMarkup(createElement(BuildTaskDetails, { entry: { ...entry, result: null, log, job: { ...entry.job, state: "cancelled", error: "Cancelled by request." } }, onCancel: () => {}, onReveal: () => {} }));
+    expect(html).toContain("已按请求取消任务。"); expect(html).toContain(log);
+    expect(html).toContain('title="Cancelled by request."');
+  });
+
+  it("renders cancellation and Build & Run provenance in Chinese", () => {
+    const html = renderToStaticMarkup(createElement(BuildTaskDetails, { entry: { ...entry, cancellationRequested: true, log: null, job: { ...entry.job, state: "running", command: "run", source: { ...entry.job.source, dirty: true } } }, onCancel: () => {}, onReveal: () => {} }));
+    for (const text of ["构建并运行", "正在取消…", "有未提交的修改", "任务记录与来源", "等待 CBT 输出…", "未保存为可复现的固定快照"]) expect(html).toContain(text);
+    expect(html).toMatch(/disabled=""[^>]*>正在取消…/);
   });
 });
