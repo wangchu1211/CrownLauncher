@@ -39,7 +39,16 @@ npm start
 .\Build.ps1 -Test
 ```
 
-开发环境中可通过设置页选择 `crown_editor_qt.exe`，也可临时设置：
+Editor 解析顺序：设置页手动指定 > `CROWN_EDITOR_EXECUTABLE` > Launcher 同目录的
+Editor > 附近 CBT 构建。自动发现只沿 Launcher 可执行文件目录的祖先查找，支持位于
+CrownEngine 仓库内部，或与 CrownEngine 并列的 CrownLauncher 仓库（包括 `npm start`
+和仓库内打包目录）。引擎仓库须有 `CrownBuild.ps1` 与 `Engine/Build/CBT`；只检查
+`Build/CBT/Artifacts/Ninja/Win64/{Shipping,Development,Debug}/CrownEditor`，按此顺序
+选取可用 Editor。不扫描磁盘、其他账号目录或从当前工作目录猜测引擎。
+
+手动指定的路径失效时会报错，不会静默切换到别的引擎。在设置中清空路径并保存可恢复
+自动发现；自动发现结果不写成账号的固定路径。独立移动 Launcher 后若找不到附近引擎，
+可通过设置页选择 `crown_editor_qt.exe`，也可临时设置：
 
 ```powershell
 $env:CROWN_EDITOR_EXECUTABLE =
@@ -54,7 +63,13 @@ npm start
 ```
 
 输出位于 `Build/Electron/win-unpacked/CrownLauncher.exe`。正式安装布局仍允许 Launcher
-与 CrownEditor 同目录；开发布局通过 Launcher Settings 指向独立的 Editor 构建。
+与 CrownEditor 同目录；开发布局会自动发现上述 CBT Editor，也可在 Launcher Settings
+手动覆盖。
+
+Projects 注册记录、固定状态和默认项目目录仍按 Windows 账号隔离，存于
+`%LOCALAPPDATA%/CrownEngine/CrownLauncher`。Samples 与模板不归账号所有，分别读取
+当前 Editor 同目录的 `Samples` / `Templates`；Samples 页面会显示来源路径。创建副本后，
+该副本才作为当前账号的项目登记。切换 Windows 账号无需复制另一账号的设置或项目记录。
 
 产品方案见 [Project Manager MVP](Docs/project-manager-mvp.md)，Electron 决策与进程边界
 见 [Electron Architecture](Docs/architecture/electron-launcher.md)。

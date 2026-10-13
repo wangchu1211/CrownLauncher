@@ -54,7 +54,10 @@ export class SettingsStore {
         defaultProjectDirectory: typeof parsed.defaultProjectDirectory === "string" && parsed.defaultProjectDirectory.trim()
           ? path.resolve(parsed.defaultProjectDirectory)
           : path.join(homedir(), "CrownProjects"),
-        editorExecutable: typeof parsed.editorExecutable === "string" ? path.normalize(parsed.editorExecutable) : "",
+        // Older builds normalized the empty auto-discovery setting to ".".
+        // A directory cannot be an Editor executable; restore automatic mode.
+        editorExecutable: typeof parsed.editorExecutable === "string" && parsed.editorExecutable.trim() && parsed.editorExecutable.trim() !== "."
+          ? path.normalize(parsed.editorExecutable.trim()) : "",
       };
       // WHY: Electron migration builds before 0.2.0 decoded reg.exe output as
       // UTF-8 and could persist U+FFFD in non-ASCII home paths. Re-run the

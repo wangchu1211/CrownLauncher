@@ -41,6 +41,29 @@ describe("workbench contracts", () => {
   it("passes options as argument elements, never a shell command", () => {
     expect(requestArguments(request)).toEqual(["--configuration", "Shipping", "--platform", "Win64", "--jobs", "4", "--feature", "Tracy=false"]);
   });
+  it("requires a typed project only for project-based run targets", () => {
+    const projectCapabilities = { ...capabilities, targets: [{ ...capabilities.targets[0]!, runRequiresProject: true }] };
+    const run = { ...request, operation: "run" as const };
+    for (const runProject of [undefined, "", "relative/path", 123, "D:/Project\nextra"]) {
+      expect(() => validateBuildRequest({ ...run, runProject }, projectCapabilities)).toThrow("项目目录");
+    }
+    const withProject = { ...run, runProject: "D:/项目/LookDev Sample" };
+    expect(validateBuildRequest(withProject, projectCapabilities)).toEqual(withProject);
+    expect(requestArguments(withProject).slice(-3)).toEqual(["--args", "--project", "D:/项目/LookDev Sample"]);
+    expect(() => validateBuildRequest({ ...request, runProject: withProject.runProject }, projectCapabilities)).toThrow("不接受运行项目");
+    expect(() => validateBuildRequest(withProject, capabilities)).toThrow("不接受运行项目");
+    expect(validateBuildRequest(request, projectCapabilities)).toEqual(request);
+  });
+  it("reports a runtime failure separately from a verified build", () => {
+    const failed = { ...entry, job: { ...entry.job, command: "run" as const, state: "failed" as const, runProject: "D:/项目/LookDev", error: "CBT failed. See the task log for diagnostics." }, progress: { phase: "running-product", target: request.target, plannedActions: null, invalidatedActions: null } };
+    const html = renderToStaticMarkup(createElement(BuildTaskDetails, { entry: failed, onCancel: () => {}, onReveal: () => {} }));
+    expect(html).toContain("构建已通过，程序运行失败");
+    expect(html).toContain("这不是编译失败");
+    expect(html).toContain("运行项目：D:/项目/LookDev");
+    expect(html).toContain("构建已验证");
+    const compileFailure = renderToStaticMarkup(createElement(BuildTaskDetails, { entry: { ...failed, result: null }, onCancel: () => {}, onReveal: () => {} }));
+    expect(compileFailure).not.toContain("这不是编译失败");
+  });
   it("keeps build verification distinct from tests and human acceptance", () => {
     const html = renderToStaticMarkup(createElement(BuildTaskDetails, { entry, onCancel: () => {}, onReveal: () => {} }));
     expect(html).toContain("构建已验证"); expect(html).toContain("未运行"); expect(html).toContain("待验收"); expect(html).toContain("命令行");
@@ -76,6 +99,18 @@ describe("workbench contracts", () => {
     expect(query.mock.calls[2]![0]).toContain("powershell.exe");
     expect(query.mock.calls[2]![1]).toContain(path.join(root, "CrownBuild.ps1"));
     expect(query.mock.calls[2]![1]).toContain("start");
+    const projectCapabilities = { ...capabilities, workspace: root, targets: [{ ...capabilities.targets[0]!, runRequiresProject: true }], runtime: { dotnet: "dotnet", assembly } };
+    query.mockImplementation(async (_executable, args) => JSON.stringify(args.includes("capabilities") ? projectCapabilities : { schemaVersion: 1, jobId: "b".repeat(32) }));
+    await service.connect(root);
+    const projectRoot = path.join(root, "项目 with spaces");
+    const runRequest = { ...request, workspace: root, operation: "run" as const, runProject: projectRoot };
+    const count = query.mock.calls.length;
+    await expect(service.start(runRequest)).rejects.toThrow("运行项目不可用");
+    expect(query).toHaveBeenCalledTimes(count);
+    await mkdir(path.join(projectRoot, "Assets"), { recursive: true });
+    await writeFile(path.join(projectRoot, "Sample.crownproject"), JSON.stringify({ schemaVersion: 1, projectId: "8513eac9-1f78-45a9-a1db-8740cd7b3044", displayName: "Sample" }));
+    await service.start(runRequest);
+    expect(query.mock.calls.at(-1)![1].slice(-3)).toEqual(["--args", "--project", projectRoot]);
   });
 
   it("renders Chinese workspace guidance and an accessible source path without starting a build", () => {

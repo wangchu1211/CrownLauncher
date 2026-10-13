@@ -168,6 +168,12 @@ svg { flex-shrink: 0; }
 
 .samples-page { display: flex; flex-direction: column; width: 100%; height: 100%; padding: 28px 30px; gap: 28px; }
 .section-caption { color: var(--faint); font-size: 10px; letter-spacing: 1px; }
+.sample-install { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.sample-install > div { min-width: 0; }
+.sample-install p { margin: 9px 0; color: var(--muted); font-size: 12px; }
+.sample-install code { display: block; overflow-wrap: anywhere; color: var(--faint); font-size: 11px; }
+.sample-install > .button { flex-shrink: 0; }
+.sample-install-error { max-width: 720px; overflow-wrap: anywhere; }
 .sample-grid { position: relative; display: grid; grid-template-columns: repeat(auto-fill, minmax(285px, 1fr)); grid-auto-rows: minmax(250px, auto); flex: 1; align-content: start; min-height: 0; gap: 16px; overflow-y: auto; }
 .sample-card { display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
 .sample-card:hover { border-color: var(--crown-line-strong); }
@@ -219,6 +225,7 @@ svg { flex-shrink: 0; }
 .editor-state { display: flex; align-items: center; gap: 7px; margin: 0; overflow-wrap: anywhere; font-size: 11px; }
 .editor-state.ready { color: var(--success); }
 .editor-state.missing { color: var(--danger); }
+.editor-discovery-hint { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
 .remove-modal, .delete-modal { width: 460px; }
 .remove-copy p, .delete-copy p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
 .delete-copy { display: flex; flex-direction: column; gap: 15px; }

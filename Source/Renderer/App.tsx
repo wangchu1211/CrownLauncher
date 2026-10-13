@@ -3,6 +3,7 @@ import appIcon from "../../Resources/app-icon.png";
 import { WorkbenchPage } from "./WorkbenchPage";
 import type {
   CreateProjectInput,
+  EditorInstallView,
   LauncherSnapshot,
   ProjectSampleView,
   ProjectView,
@@ -311,15 +312,22 @@ export function ProjectsPage({ snapshot, selected, projectSize, search, setSearc
   </div>;
 }
 
-export function SamplesPage({ samples, editorReady, onRefresh, onCreate }: {
+export function SamplesPage({ samples, editor, onRefresh, onCreate, onConfigure }: {
   samples: ProjectSampleView[];
-  editorReady: boolean;
+  editor: EditorInstallView;
   onRefresh: () => void;
   onCreate: (sample: ProjectSampleView) => void;
+  onConfigure: () => void;
 }) {
   return <main className="samples-page">
     <header className="page-heading"><div><h1>Samples</h1><p>Explore Crown. Make it your own.</p></div><Button onClick={onRefresh}><RefreshIcon /> Refresh</Button></header>
-    <div className="section-caption">FROM YOUR EDITOR INSTALLATION</div>
+    <section className="sample-install" aria-label="Sample source">
+      <div><div className="section-caption">FROM YOUR EDITOR INSTALLATION</div>
+        <p>Samples 来自当前引擎安装，与 Windows 账号无关。</p>
+        {editor.ready && <code title={editor.executable}>{editor.executable}</code>}
+      </div>
+      <Button onClick={onConfigure}>{editor.ready ? "切换引擎" : "配置 CrownEditor"}</Button>
+    </section>
     <div className="sample-grid">
       {samples.map((sample) => <article className="sample-card" key={sample.id}>
         <div className="sample-card-top"><span className="sample-symbol"><DiamondIcon /></span><small>{(sample.category || "SAMPLE").toLocaleUpperCase()}</small></div>
@@ -327,7 +335,11 @@ export function SamplesPage({ samples, editorReady, onRefresh, onCreate }: {
         <p>{sample.description}</p>
         <footer><span>{sample.scripting ? "C#  ·  Full project" : "Full project"}</span><Button onClick={() => onCreate(sample)}>Create Copy <span aria-hidden="true">↗</span></Button></footer>
       </article>)}
-      {samples.length === 0 && <div className="empty-state sample-empty"><strong>{editorReady ? "No samples installed" : "Configure CrownEditor to discover samples"}</strong><span>Samples are supplied by the selected Editor installation.</span></div>}
+      {samples.length === 0 && <div className="empty-state sample-empty">
+        <strong>{editor.ready ? "当前引擎未安装 Samples" : "尚未找到 CrownEditor"}</strong>
+        <span>{editor.ready ? "请选择包含 Samples 的引擎安装，然后刷新。" : "请配置 CrownEditor 路径；连接后会自动显示该引擎附带的 Samples。"}</span>
+        {!editor.ready && editor.error && <span className="sample-install-error">{editor.error}</span>}
+      </div>}
     </div>
   </main>;
 }
@@ -404,7 +416,7 @@ function SampleDialog({ sample, snapshot, busy, onClose, onChooseDirectory, onSu
   </Modal>;
 }
 
-function SettingsDialog({ snapshot, busy, onClose, onChooseDirectory, onChooseEditor, onSubmit }: {
+export function SettingsDialog({ snapshot, busy, onClose, onChooseDirectory, onChooseEditor, onSubmit }: {
   snapshot: LauncherSnapshot;
   busy: boolean;
   onClose: () => void;
@@ -413,12 +425,14 @@ function SettingsDialog({ snapshot, busy, onClose, onChooseDirectory, onChooseEd
   onSubmit: (directory: string, editor: string) => Promise<void>;
 }) {
   const [directory, setDirectory] = useState(snapshot.settings.defaultProjectDirectory);
-  const [editor, setEditor] = useState(snapshot.settings.editorExecutable || snapshot.editor.executable);
+  const [editor, setEditor] = useState(snapshot.settings.editorExecutable);
   return <Modal title="Launcher Settings" onClose={onClose} className="settings-modal">
     <div className="modal-content form-stack">
       <label className="field-caption" htmlFor="settings-editor">CROWNEDITOR EXECUTABLE</label>
-      <div className="field-row"><input id="settings-editor" className="text-field" value={editor} onChange={(event) => setEditor(event.target.value)} /><Button onClick={() => void onChooseEditor(editor).then((value) => value && setEditor(value))}>Choose</Button></div>
+      <div className="field-row"><input id="settings-editor" className="text-field" placeholder="留空：自动发现附近的 CrownEditor" value={editor} onChange={(event) => setEditor(event.target.value)} /><Button onClick={() => void onChooseEditor(editor || snapshot.editor.executable).then((value) => value && setEditor(value))}>Choose</Button></div>
+      <p className="editor-discovery-hint">留空并保存可恢复自动发现。手动指定路径优先；Samples 与模板始终来自同一引擎。</p>
       <p className={`editor-state ${snapshot.editor.ready ? "ready" : "missing"}`}><i />{snapshot.editor.ready ? `CrownEditor ${snapshot.editor.version}` : snapshot.editor.error}</p>
+      {snapshot.editor.ready && <p className="editor-discovery-hint">当前使用：{snapshot.editor.executable}</p>}
       <label className="field-caption settings-directory-label" htmlFor="settings-directory">DEFAULT PROJECT LOCATION</label>
       <div className="field-row"><input id="settings-directory" className="text-field" value={directory} onChange={(event) => setDirectory(event.target.value)} /><Button onClick={() => void onChooseDirectory(directory).then((value) => value && setDirectory(value))}>Browse</Button></div>
     </div>
@@ -550,9 +564,10 @@ export function App() {
           onConfigure={() => setDialog("settings")}
         /> : <SamplesPage
           samples={snapshot.samples}
-          editorReady={snapshot.editor.ready}
+          editor={snapshot.editor}
           onRefresh={() => void refresh(selectedPath)}
           onCreate={(value) => { setSample(value); setDialog("sample"); }}
+          onConfigure={() => setDialog("settings")}
         />}
       </section>
     </div>

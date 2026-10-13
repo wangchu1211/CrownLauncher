@@ -32,7 +32,10 @@ export async function calculateDirectorySize(directory: string): Promise<number>
       }
       if (entry.isFile()) {
         try {
-          bytes += (await lstat(entryPath)).size;
+          // Read before accumulating: `bytes += await ...` captures an old sum
+          // before yielding, so concurrent file stats overwrite each other.
+          const info = await lstat(entryPath);
+          bytes += info.size;
         } catch (error) {
           if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
             throw error;

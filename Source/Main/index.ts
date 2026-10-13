@@ -1,10 +1,11 @@
-import { app, BrowserWindow, net, protocol, session } from "electron";
+import { app, BrowserWindow, net, protocol, screen, session } from "electron";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { registerIpc } from "./ipc";
 import { LauncherService } from "./launcherService";
 import { WorkbenchService } from "./workbenchService";
 import { registerZoomShortcuts } from "./zoomShortcuts";
+import { defaultWindowBounds } from "./windowLayout";
 
 protocol.registerSchemesAsPrivileged([{
   scheme: "crown",
@@ -37,11 +38,9 @@ function registerAppProtocol(): void {
 }
 
 async function createWindow(): Promise<void> {
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const window = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: 960,
-    minHeight: 600,
+    ...defaultWindowBounds(display.workArea),
     show: false,
     frame: false,
     thickFrame: true,

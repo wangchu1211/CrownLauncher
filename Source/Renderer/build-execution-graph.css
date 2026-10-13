@@ -1,0 +1,83 @@
+.build-detail-tabs { display: flex; gap: 18px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.build-detail-tabs button { padding: 9px 3px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--faint); font-size: 13px; }
+.build-detail-tabs button[aria-selected="true"] { border-bottom-color: var(--accent); color: var(--text); }
+.build-tab-panel { display: flex; flex: 1; flex-direction: column; min-height: 340px; gap: 12px; }
+.build-tab-panel[hidden] { display: none; }
+.build-summary { line-height: 1.8; color: var(--muted); font-size: 13px; }
+.build-summary h3 { color: var(--text); font-weight: 500; margin: 0 0 9px; }
+.execution-panel, .execution-graph { display: flex; flex: 1; flex-direction: column; gap: 10px; min-height: 380px; min-width: 0; }
+.execution-panel.expanded { position: fixed; inset: 50px 18px 18px 66px; z-index: 100; padding: 22px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 0 0 100vmax #0008; }
+.execution-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 12px; }
+.execution-panel-heading small { margin-left: 10px; color: var(--faint); font-size: 11px; }
+.execution-panel-heading .button { padding: 5px 9px; font-size: 11px; height: 27px; }
+.execution-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0; }
+.execution-filters, .execution-zoom { display: flex; align-items: center; gap: 3px; }
+.execution-toolbar button { border: 1px solid transparent; background: transparent; border-radius: 5px; padding: 5px 7px; color: var(--muted); font-size: 11px; }
+.execution-toolbar button:hover { background: var(--crown-hover); }
+.execution-filters button[aria-pressed="true"] { background: var(--crown-selection); color: var(--text); }
+.execution-zoom > span { font-size: 11px; color: var(--faint); min-width: 34px; text-align: center; }
+.execution-stats { display: flex; flex-wrap: wrap; gap: 7px 14px; font-size: 11px; color: var(--muted); }
+.execution-stats small { font-size: 11px; color: var(--faint); }
+.execution-body { position: relative; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 320px; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.execution-viewport { position: relative; min-width: 0; min-height: 320px; overflow: hidden; touch-action: none; cursor: grab; background-color: #181818; background-image: radial-gradient(#34312e 1px, transparent 1px); background-size: 20px 20px; }
+.execution-viewport.panning, .execution-viewport.panning .execution-node { cursor: grabbing; }
+.execution-surface { position: absolute; transform-origin: 0 0; }
+.execution-surface > svg { position: absolute; overflow: visible; pointer-events: none; }
+.execution-edge { fill: none; stroke: #62574d; stroke-width: 1.5; }
+.execution-surface marker path { fill: #867567; }
+.execution-node { position: absolute; display: flex; flex-direction: column; gap: 10px; padding: 13px 14px; text-align: left; border-radius: 9px; border: 1px solid #45413d; background: #252320; box-shadow: 0 3px 8px #0003; cursor: pointer; }
+.execution-node:hover, .execution-node.selected { border-color: var(--accent); box-shadow: 0 0 0 2px #d7a38c22; }
+.execution-node.running { border-color: #d0ac74; background: #302a20; }
+.execution-node.failed { border-color: #b86e62; background: #342421; }
+.execution-node.blocked { border-color: #805950; }
+.execution-node.succeeded { border-color: #587255; }
+.execution-node.reused { border-color: #4b646e; }
+.execution-node-top { display: flex; align-items: center; justify-content: space-between; }
+.execution-node-top > small { color: var(--faint); font-size: 10px; letter-spacing: 1px; }
+.execution-node > strong { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.execution-node-counts { display: flex; gap: 3px; font-size: 11px; color: var(--muted); }
+.execution-node-counts > small { margin-left: auto; color: var(--faint); font-size: 11px; }
+.execution-state { font-size: 11px; font-style: normal; color: var(--muted); }
+.execution-state.running { color: #e0ba7f; }
+.execution-state.succeeded, .execution-state.prepared { color: #9cb88f; }
+.execution-state.reused { color: #91b6c6; }
+.execution-state.failed, .execution-state.blocked, .execution-state.interrupted { color: #dfa097; }
+.execution-node.dim { opacity: .27; }
+.execution-edge.dim { opacity: .15; }
+.execution-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; color: var(--faint); font-size: 10px; }
+.execution-legend > span { display: inline-flex; align-items: center; gap: 4px; }
+.execution-legend i { width: 5px; height: 5px; border-radius: 50%; background: #999; }
+.execution-legend i.running { background: #d0ac74; }
+.execution-legend i.succeeded { background: #9cb88f; }
+.execution-legend i.reused { background: #91b6c6; }
+.execution-legend i.failed { background: #dfa097; }
+.execution-legend > small { font-size: 10px; margin-left: auto; }
+/* An overlay at every window size: selecting a node must never change the
+   viewport's dimensions, zoom, or pan. Keep wheel events out of the canvas. */
+.execution-inspector { position: absolute; top: 12px; right: 12px; z-index: 1; box-sizing: border-box; width: 300px; max-width: calc(100% - 24px); display: flex; flex-direction: column; gap: 9px; min-height: 0; max-height: min(520px, calc(100% - 24px)); padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); box-shadow: 0 10px 32px #0006; overflow-y: auto; overscroll-behavior: contain; }
+.execution-inspector > :not(.execution-action-list) { flex-shrink: 0; }
+.execution-inspector > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 5px; }
+.execution-inspector h3 { font-size: 14px; font-weight: 500; margin: 4px 0 0; overflow-wrap: anywhere; }
+.execution-inspector header small { color: var(--faint); font-size: 10px; letter-spacing: 1px; }
+.execution-inspector p { font-size: 11px; color: var(--muted); margin: 0; line-height: 1.7; }
+.execution-inspector .text-field { width: 100%; font-size: 11px; height: 30px; }
+.execution-inspector .execution-detail-note { color: var(--faint); }
+.execution-active-filter { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+.execution-action-list { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.execution-action { border-top: 1px solid var(--line-soft); padding: 9px 0; }
+.execution-action summary { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; cursor: pointer; }
+.execution-action summary span { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.execution-action summary small { font-size: 10px; color: var(--faint); }
+.execution-action summary strong { font-size: 11px; font-weight: 400; overflow-wrap: anywhere; }
+.execution-action time { color: var(--faint); font-size: 10px; white-space: nowrap; }
+.execution-action.running summary small { color: #e0ba7f; }
+.execution-action.failed summary small, .execution-action.blocked summary small { color: #dfa097; }
+.execution-action .execution-path, .execution-action li { overflow-wrap: anywhere; font-family: var(--crown-font-mono); font-size: 10px; margin: 8px 0; color: var(--faint); }
+.execution-action ul { padding-left: 14px; margin: 0; }
+.execution-empty { margin: auto; max-width: 420px; padding: 35px; text-align: center; color: var(--faint); font-size: 13px; line-height: 1.8; }
+.execution-empty h3 { color: var(--muted); font-size: 16px; font-weight: 500; }
+.execution-target-picker { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; min-width: 0; color: var(--faint); font-size: 11px; }
+.execution-target-select { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.execution-target-select > span { flex: 0 0 auto; white-space: nowrap; }
+.execution-target-select .text-field { flex: 1 1 240px; width: auto; min-width: 0; max-width: 440px; height: 34px; min-height: 34px; font-size: 12px; }
+.execution-target-picker > small { font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }

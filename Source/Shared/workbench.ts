@@ -6,7 +6,7 @@ export interface BuildCapabilities {
   configurations: string[];
   platforms: string[];
   features: { name: string; description: string; defaultValue: string }[];
-  targets: { name: string; kind: string; outputKind: string; ruleSource: string; canRun: boolean; requiredFeatures: string[] }[];
+  targets: { name: string; kind: string; outputKind: string; ruleSource: string; canRun: boolean; requiredFeatures: string[]; runRequiresProject?: boolean; runWorkingDirectory?: string }[];
   source: { branch: string; commit: string; dirty: boolean; workingTree: string };
   runtime: { dotnet: string; assembly: string };
 }
@@ -19,6 +19,7 @@ export interface BuildRequest {
   features: Record<string, string>;
   jobs: number;
   operation: "build" | "run";
+  runProject?: string;
 }
 
 export interface BuildDescription {
@@ -52,14 +53,40 @@ export interface BuildJobView {
     heartbeatAt: string | null;
     exitCode: number | null;
     error: string | null;
+    runProject?: string | null;
   };
   cancellationRequested: boolean;
   progress: { phase: string; target: string; plannedActions: number | null; invalidatedActions: number | null } | null;
   result: { outcome: string; artifact: string; buildGraphFingerprint: string; actionGraphFingerprint: string } | null;
+  timing?: { buildCompletedAt: string; buildDurationMs: number } | null;
   validation: "not-run";
   manualAcceptance: "pending";
   log: string | null;
   logPath: string;
+  execution?: { schemaVersion: 1; graphs: ExecutionGraph[]; warnings: string[] } | null;
+}
+
+export type ActionState = "pending" | "running" | "succeeded" | "reused" | "prepared" | "failed" | "blocked" | "cancelled" | "interrupted" | "unknown";
+export interface ExecutionAction {
+  id: string;
+  module: string;
+  kind: string;
+  label: string;
+  dependencies: string[];
+  state: ActionState;
+  needsBuild: boolean;
+  startedAt: string | null;
+  finishedAt: string | null;
+  exitCode: number | null;
+}
+export interface ExecutionModule { id: string; name: string; kind: string; dependencies: string[] }
+export interface ExecutionGraph {
+  id: string;
+  target: string;
+  fingerprint: string;
+  createdAt: string;
+  modules: ExecutionModule[];
+  actions: ExecutionAction[];
 }
 
 export interface BuildHistory {
@@ -69,6 +96,8 @@ export interface BuildHistory {
 }
 
 export interface WorkbenchHost {
+  artifact(workspace: string, jobId: string): Promise<Result<BuildArtifact>>;
+  launchArtifact(workspace: string, jobId: string, project?: string): Promise<Result<{ processId: number }>>;
   getWorkspaces(): Promise<Result<string[]>>;
   chooseWorkspace(): Promise<Result<string | null>>;
   connect(workspace: string): Promise<Result<BuildCapabilities>>;
@@ -78,4 +107,17 @@ export interface WorkbenchHost {
   job(workspace: string, jobId: string): Promise<Result<BuildJobView>>;
   cancel(workspace: string, jobId: string): Promise<Result<void>>;
   reveal(workspace: string, jobId: string, item: "log" | "artifact"): Promise<Result<void>>;
+}
+
+export interface BuildArtifact {
+  path: string;
+  directory: string;
+  bytes: number;
+  executableBytes: number;
+  modifiedAt: string;
+  measuredAt: string;
+  canRun: boolean;
+  runRequiresProject: boolean;
+  buildCompletedAt: string | null;
+  buildDurationMs: number | null;
 }

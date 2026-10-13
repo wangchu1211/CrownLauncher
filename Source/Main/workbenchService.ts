@@ -1,14 +1,23 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import type { BuildCapabilities, BuildDescription, BuildHistory, BuildJobView, BuildRequest } from "../Shared/workbench";
+import type { BuildArtifact, BuildCapabilities, BuildDescription, BuildHistory, BuildJobView, BuildRequest } from "../Shared/workbench";
 import { writeFileAtomically } from "./Core/atomicFile";
+import { inspectProject } from "./Core/projectDescriptor";
+import { calculateDirectorySize } from "./Core/directorySize";
 
 const executeFile = promisify(execFile);
 type Query = (executable: string, args: string[], cwd: string, timeout: number) => Promise<string>;
+type Launch = (executable: string, args: string[], cwd: string) => Promise<number>;
+const launchProcess: Launch = (executable, args, cwd) => new Promise((resolve, reject) => {
+  const child = spawn(executable, args, { cwd, detached: true, stdio: "ignore", windowsHide: false });
+  child.once("error", reject);
+  child.once("spawn", () => { child.unref(); resolve(child.pid!); });
+});
 const execute: Query = async (executable, args, cwd, timeout) => {
-  try { return (await executeFile(executable, args, { cwd, timeout, windowsHide: true, maxBuffer: 8 * 1024 * 1024, encoding: "utf8" })).stdout; }
+  // Selected-task detail includes the bounded action graph; history remains small.
+  try { return (await executeFile(executable, args, { cwd, timeout, windowsHide: true, maxBuffer: 32 * 1024 * 1024, encoding: "utf8" })).stdout; }
   catch (error) {
     const failure = error as Error & { stdout?: string; stderr?: string };
     throw new Error([failure.stderr, failure.stdout, failure.message].filter(Boolean).join("\n").slice(-16000));
@@ -33,6 +42,11 @@ export function validateBuildRequest(input: unknown, capabilities: BuildCapabili
     !Number.isInteger(request.jobs) || request.jobs! < 1 || request.jobs! > 64 ||
     (request.operation !== "build" && request.operation !== "run")) { throw new Error("请选择支持的工作区、构建目标、配置和平台，并将并行任务数设为 1–64。"); }
   if (request.operation === "run" && !capabilities.targets.find(target => target.name === request.target)?.canRun) { throw new Error("此构建目标不支持运行。"); }
+  const needsProject = request.operation === "run" && capabilities.targets.find(target => target.name === request.target)?.runRequiresProject;
+  if (needsProject && (typeof request.runProject !== "string" || !path.isAbsolute(request.runProject) || /[\0\r\n]/.test(request.runProject))) {
+    throw new Error("请先选择要打开的 Crown 项目目录，再构建并运行。");
+  }
+  if (!needsProject && request.runProject !== undefined) { throw new Error("当前操作不接受运行项目。"); }
   if (!request.features || typeof request.features !== "object" || Array.isArray(request.features)) { throw new Error("功能开关选项无效。"); }
   for (const [name, value] of Object.entries(request.features)) {
     if (!capabilities.features.some(feature => feature.name === name) || (value !== "true" && value !== "false")) { throw new Error("不支持的功能开关选项：" + name); }
@@ -46,13 +60,14 @@ export function validateBuildRequest(input: unknown, capabilities: BuildCapabili
 
 export function requestArguments(request: BuildRequest): string[] {
   return ["--configuration", request.configuration, "--platform", request.platform, "--jobs", String(request.jobs),
-    ...Object.entries(request.features).sort(([left], [right]) => left.localeCompare(right)).flatMap(([name, value]) => ["--feature", `${name}=${value}`])];
+    ...Object.entries(request.features).sort(([left], [right]) => left.localeCompare(right)).flatMap(([name, value]) => ["--feature", `${name}=${value}`]),
+    ...(request.operation === "run" && request.runProject ? ["--args", "--project", request.runProject] : [])];
 }
 
 export class WorkbenchService {
   private connections = new Map<string, BuildCapabilities>();
   private connecting = new Map<string, Promise<BuildCapabilities>>();
-  constructor(private readonly configDirectory: string, private readonly query: Query = execute) {}
+  constructor(private readonly configDirectory: string, private readonly query: Query = execute, private readonly launch: Launch = launchProcess) {}
 
   async workspaces(): Promise<string[]> {
     try {
@@ -109,6 +124,11 @@ export class WorkbenchService {
   }
   async start(input: unknown): Promise<{ schemaVersion: 1; jobId: string }> {
     const request = this.request(input);
+    if (request.runProject) {
+      const inspection = await inspectProject(request.runProject);
+      if (inspection.health !== "ready") throw new Error("运行项目不可用：" + inspection.message);
+      request.runProject = inspection.root;
+    }
     // WHY: queries pin the connected runtime, but a build must bootstrap current
     // CBT/rules after source edits. Keep this public-entry boundary until CBT has
     // an equivalent validated runtime-refresh API; never build with stale rules.
@@ -133,6 +153,44 @@ export class WorkbenchService {
   }
   async job(workspace: string, id: string): Promise<BuildJobView> { return this.command(workspace, ["job", "--job-id", this.jobId(id)]); }
   async cancel(workspace: string, id: string): Promise<void> { await this.command(workspace, ["cancel", "--job-id", this.jobId(id)]); }
+  private async artifactPath(workspace: string, entry: BuildJobView): Promise<string> {
+    if (!entry.result || !["build-passed", "run-passed"].includes(entry.result.outcome)) throw new Error("此任务没有经过验证的构建产物。");
+    const resolved = await realpath(path.resolve(workspace, entry.result.artifact));
+    const root = await realpath(path.join(workspace, "Build/CBT/Artifacts"));
+    const relative = path.relative(root, resolved);
+    if (!relative || relative.startsWith("..") || path.isAbsolute(relative) || !(await stat(resolved)).isFile()) throw new Error("产物不在 CBT 产物目录内。");
+    return resolved;
+  }
+  async artifact(workspace: string, id: string): Promise<BuildArtifact> {
+    const entry = await this.job(workspace, id);
+    const executable = await this.artifactPath(workspace, entry);
+    const info = await stat(executable);
+    const capability = this.connection(workspace).targets.find(item => item.name === entry.job.target);
+    return { path: executable, directory: path.dirname(executable), bytes: await calculateDirectorySize(path.dirname(executable)), executableBytes: info.size,
+      modifiedAt: info.mtime.toISOString(), measuredAt: new Date().toISOString(),
+      canRun: Boolean(capability?.canRun && capability.runWorkingDirectory && /\.exe$/i.test(executable)),
+      runRequiresProject: Boolean(capability?.runRequiresProject),
+      buildCompletedAt: entry.timing?.buildCompletedAt ?? null, buildDurationMs: entry.timing?.buildDurationMs ?? null };
+  }
+  async launchArtifact(workspace: string, id: string, project?: string): Promise<{ processId: number }> {
+    const entry = await this.job(workspace, id);
+    if (entry.job.state === "running" || entry.job.state === "queued") throw new Error("请等待本次任务结束后再直接运行产物。");
+    const executable = await this.artifactPath(workspace, entry);
+    const capability = this.connection(workspace).targets.find(item => item.name === entry.job.target);
+    if (!capability?.canRun || !/\.exe$/i.test(executable)) throw new Error("此产物不支持直接运行。");
+    const cwd = capability.runWorkingDirectory === "RepositoryRoot" ? workspace : capability.runWorkingDirectory === "ArtifactDirectory" ? path.dirname(executable) : null;
+    if (!cwd) throw new Error("请更新 CBT 并重新连接，以读取产物的运行目录约定。");
+    const args: string[] = [];
+    if (capability.runRequiresProject) {
+      if (typeof project !== "string" || !path.isAbsolute(project) || /[\0\r\n]/.test(project)) throw new Error("请先选择运行项目。");
+      const inspection = await inspectProject(project);
+      if (inspection.health !== "ready") throw new Error("运行项目不可用：" + inspection.message);
+      args.push("--project", inspection.root);
+    } else if (project !== undefined) throw new Error("此产物不接受项目参数。");
+    // Launch the current published file, not a historical binary snapshot. This
+    // intentionally does not call CBT start or mutate the completed build task.
+    return { processId: await this.launch(executable, args, cwd) };
+  }
   async revealPath(workspace: string, id: string, item: "log" | "artifact"): Promise<string> {
     const entry = await this.job(workspace, id);
     const target = item === "log" ? path.join(workspace, "Build/CBT/Workbench/Jobs", id, "output.log")

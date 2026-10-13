@@ -1,7 +1,7 @@
 import { Children, createElement, isValidElement, type ComponentProps, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { ProjectInspector, ProjectRow, ProjectsPage, SamplesPage, Sidebar } from "../Source/Renderer/App";
+import { ProjectInspector, ProjectRow, ProjectsPage, SamplesPage, SettingsDialog, Sidebar } from "../Source/Renderer/App";
 import type { LauncherSnapshot, ProjectView } from "../Source/Shared/contracts";
 
 const noop = () => {};
@@ -133,10 +133,27 @@ describe("Launcher presentation", () => {
   });
 
   it("renders sample copy actions and explains unavailable samples", () => {
-    const html = renderToStaticMarkup(createElement(SamplesPage, { samples: snapshot.samples, editorReady: true, onRefresh: noop, onCreate: noop }));
+    const props = { samples: snapshot.samples, editor: snapshot.editor, onRefresh: noop, onCreate: noop, onConfigure: noop };
+    const html = renderToStaticMarkup(createElement(SamplesPage, props));
     expect(html).toContain("LookDev Gallery");
     expect(html).toContain("Create Copy");
-    const empty = renderToStaticMarkup(createElement(SamplesPage, { samples: [], editorReady: false, onRefresh: noop, onCreate: noop }));
-    expect(empty).toContain("Configure CrownEditor to discover samples");
+    expect(html).toContain(snapshot.editor.executable);
+    expect(html).toContain("与 Windows 账号无关");
+    expect(html).toContain("切换引擎");
+    const empty = renderToStaticMarkup(createElement(SamplesPage, { ...props, samples: [], editor: { ...snapshot.editor, ready: false, error: "Missing selected Editor" } }));
+    expect(empty).toContain("尚未找到 CrownEditor");
+    expect(empty).toContain("配置 CrownEditor");
+    expect(empty).toContain("Missing selected Editor");
+    expect(renderToStaticMarkup(createElement(SamplesPage, { ...props, samples: [] }))).toContain("当前引擎未安装 Samples");
+  });
+
+  it("keeps the settings override blank while displaying the automatically resolved Editor", () => {
+    const html = renderToStaticMarkup(createElement(SettingsDialog, {
+      snapshot, busy: false, onClose: noop, onChooseDirectory: async () => null,
+      onChooseEditor: async () => null, onSubmit: async () => {},
+    }));
+    expect(html).toMatch(/id="settings-editor"[^>]+value=""/);
+    expect(html).toContain(`当前使用：${snapshot.editor.executable}`);
+    expect(html).toContain("留空并保存可恢复自动发现");
   });
 });

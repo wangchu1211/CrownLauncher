@@ -48,6 +48,8 @@ function parseCreateSample(value: unknown): CreateSampleInput {
 }
 
 export function registerIpc(window: BrowserWindow, service: LauncherService, workbench: WorkbenchService): void {
+  ipcMain.handle("workbench:artifact", (_event, workspace: unknown, id: unknown) => result(() => workbench.artifact(requireText(workspace, "Workspace"), requireText(id, "Task ID"))));
+  ipcMain.handle("workbench:launch-artifact", (_event, workspace: unknown, id: unknown, project: unknown) => result(() => workbench.launchArtifact(requireText(workspace, "Workspace"), requireText(id, "Task ID"), project === undefined ? undefined : requireText(project, "Project"))));
   ipcMain.handle("workbench:workspaces", () => result(() => workbench.workspaces()));
   ipcMain.handle("workbench:choose-workspace", () => result(async () => {
     const selection = await dialog.showOpenDialog(window, { title: "选择 CrownEngine 源码工作区", buttonLabel: "选择工作区", properties: ["openDirectory", "dontAddToRecent"] });

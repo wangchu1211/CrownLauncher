@@ -1,44 +1,44 @@
 .build-target-picker { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.build-target-picker > label { color: var(--muted); font-size: 11px; }
+.build-target-picker > label { color: var(--muted); font-size: 12px; }
 .build-target-trigger { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; text-align: left; color: var(--text); }
 .build-target-trigger:hover { border-color: var(--crown-line-strong); background: var(--crown-hover); }
 .build-target-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .build-target-trigger svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.2; }
-.build-target-help { color: var(--faint); font-size: 10px; line-height: 1.6; }
+.build-target-help { color: var(--faint); font-size: 11px; line-height: 1.6; }
 .build-target-help p { margin: 0 0 5px; }
-.build-target-help small { font-size: 10px; color: var(--muted); }
+.build-target-help small { font-size: 11px; color: var(--muted); }
 .build-target-dialog { width: min(660px, calc(100vw - 40px)); height: min(626px, calc(100vh - 64px)); max-width: none; max-height: calc(100vh - 64px); padding: 0; border: 1px solid var(--crown-line-strong); border-radius: 14px; background: var(--panel); color: var(--text); box-shadow: 0 24px 80px #0008; overflow: hidden; }
 .build-target-dialog::backdrop { background: #0008; }
 .target-dialog-content { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .target-dialog-content > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 22px 22px 16px; flex-shrink: 0; }
-.build-target-dialog .target-dialog-content h2 { margin: 0; font-size: 18px; font-weight: 600; }
-.target-dialog-content header p { margin: 6px 0 0; font-size: 12px; color: var(--faint); }
+.build-target-dialog .target-dialog-content h2 { margin: 0; font-size: 19px; font-weight: 600; }
+.target-dialog-content header p { margin: 6px 0 0; font-size: 13px; color: var(--faint); }
 .target-search { position: relative; margin: 0 22px; flex-shrink: 0; }
 .target-search > svg { position: absolute; left: 11px; top: 12px; width: 16px; height: 16px; fill: none; stroke: var(--muted); stroke-width: 1.2; }
-.build-target-dialog .target-search > input { width: 100%; height: 40px; padding-left: 35px; font-size: 12px; }
+.build-target-dialog .target-search > input { width: 100%; height: 40px; padding-left: 35px; font-size: 13px; }
 .target-filters { display: flex; flex-wrap: wrap; gap: 5px; margin: 14px 22px 0; flex-shrink: 0; }
-.target-filters button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--muted); font-size: 11px; }
+.target-filters button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--muted); font-size: 12px; }
 .target-filters button:hover { background: var(--crown-hover); }
 .target-filters button[aria-pressed="true"] { background: var(--crown-selection); border-color: var(--line); color: var(--text); }
-.target-filters span { font-size: 10px; color: var(--faint); }
-.target-result-count { flex-shrink: 0; margin: 13px 24px 7px; color: var(--faint); font-size: 10px; overflow-wrap: anywhere; }
+.target-filters span { font-size: 11px; color: var(--faint); }
+.target-result-count { flex-shrink: 0; margin: 13px 24px 7px; color: var(--faint); font-size: 11px; overflow-wrap: anywhere; }
 .target-results { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 14px 12px; }
 .target-results section + section { margin-top: 12px; }
-.build-target-dialog .target-results h3 { display: flex; justify-content: flex-start; gap: 8px; margin: 9px 10px; color: var(--muted); font-size: 11px; font-weight: 500; }
+.build-target-dialog .target-results h3 { display: flex; justify-content: flex-start; gap: 8px; margin: 9px 10px; color: var(--muted); font-size: 12px; font-weight: 500; }
 .target-results h3 > span { color: var(--faint); }
 .target-results ul { padding: 0; margin: 0; list-style: none; }
 .target-option { display: flex; flex-direction: column; width: 100%; gap: 5px; padding: 12px 10px; border: 1px solid transparent; border-radius: 9px; background: transparent; text-align: left; }
 .target-option:hover { background: var(--crown-hover); }
 .target-option.selected { border-color: var(--line); background: var(--crown-selection); }
 .target-option-title { display: flex; align-items: baseline; gap: 12px; width: 100%; }
-.target-option-title strong { min-width: 0; overflow-wrap: anywhere; font-size: 13px; font-weight: 500; }
-.target-option-title small { flex-shrink: 0; margin-left: auto; color: var(--faint); font-size: 10px; }
+.target-option-title strong { min-width: 0; overflow-wrap: anywhere; font-size: 14px; font-weight: 500; }
+.target-option-title small { flex-shrink: 0; margin-left: auto; color: var(--faint); font-size: 11px; }
 .target-option.selected .target-option-title small { color: var(--accent); }
-.target-option-description { color: var(--muted); font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }
-.target-option-hint { color: var(--faint); font-size: 10px; }
-.target-warning, .build-target-help .target-warning { color: var(--warning); font-size: 10px; line-height: 1.6; }
+.target-option-description { color: var(--muted); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.target-option-hint { color: var(--faint); font-size: 11px; }
+.target-warning, .build-target-help .target-warning { color: var(--warning); font-size: 11px; line-height: 1.6; }
 .build-run-confirm p.target-warning { color: var(--warning); }
 .target-empty { padding: 25px 10px; text-align: center; }
-.target-empty strong { font-weight: 500; font-size: 13px; }
-.target-empty p { color: var(--faint); font-size: 11px; }
-.target-dialog-content > footer { flex-shrink: 0; border-top: 1px solid var(--line); padding: 13px 22px; color: var(--faint); font-size: 10px; line-height: 1.7; }
+.target-empty strong { font-weight: 500; font-size: 14px; }
+.target-empty p { color: var(--faint); font-size: 12px; }
+.target-dialog-content > footer { flex-shrink: 0; border-top: 1px solid var(--line); padding: 13px 22px; color: var(--faint); font-size: 11px; line-height: 1.7; }
