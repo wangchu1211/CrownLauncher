@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ProjectView, Result } from "../Shared/contracts";
 import type { BuildCapabilities, BuildDescription, BuildJobView, BuildRequest } from "../Shared/workbench";
 import { FolderIcon, RefreshIcon } from "./icons";
-import { buildOrigins, buildPhases, buildStates, featureDescription, taskDiagnostic } from "./workbenchLabels";
+import { buildOrigins, buildPhases, buildStates, featureDescription } from "./workbenchLabels";
 import { BuildTargetPicker } from "./BuildTargetPicker";
 import { defaultBuildTarget, targetWarning } from "./buildTargets";
 import { BuildExecutionGraph } from "./BuildExecutionGraph";
 import { BuildArtifacts } from "./BuildArtifacts";
+import { BuildDiagnostic } from "./BuildDiagnostic";
 import "./workbench.css";
 
 function unwrap<T>(result: Result<T>): T { if (!result.ok) throw new Error(result.error); return result.value; }
@@ -39,7 +40,7 @@ export function BuildTaskDetails({ entry, onCancel, onReveal }: { entry: BuildJo
     {progress?.plannedActions != null && <p className="build-counts">{progress.target}：计划执行 {progress.plannedActions} 项操作{progress.invalidatedActions != null ? ` · ${progress.invalidatedActions} 项缓存凭据失效` : ""}。这是计划数量，不代表完成百分比。</p>}
     {result && <button className="button" onClick={() => onReveal("artifact")}>打开产物目录</button>}
     </div>
-    {job.error && <div className="build-error" role="alert" title={job.error}>{runFailed ? "编译与产物校验已通过，但程序启动或运行时异常退出。请查看日志中的退出原因；这不是编译失败。" : taskDiagnostic(job.error)}</div>}
+    <BuildDiagnostic key={job.id} entry={entry} onLog={() => onReveal("log")} />
     {job.runProject && <p className="build-run-project-record">运行项目：{job.runProject}</p>}
     {progress?.phase === "running-product" && active(entry) && <p className="build-notice">程序正在运行，退出后任务才会结束。取消任务也会停止本任务启动的程序。</p>}
     <div className="build-tab-panel" id="build-panel-graph" role="tabpanel" aria-labelledby="build-tab-graph" hidden={tab !== "graph"}><BuildExecutionGraph key={job.id} entry={entry} /></div>

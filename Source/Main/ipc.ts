@@ -1,8 +1,9 @@
-import { BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { BrowserWindow, clipboard, dialog, ipcMain, shell } from "electron";
 import { rm } from "node:fs/promises";
 import type { CreateProjectInput, CreateSampleInput, Result, SaveSettingsInput } from "../Shared/contracts";
 import { LauncherService } from "./launcherService";
 import { WorkbenchService } from "./workbenchService";
+import { formatBuildDiagnostic } from "../Shared/buildDiagnostics";
 
 function result<T>(operation: () => Promise<T>): Promise<Result<T>> {
   return operation()
@@ -49,7 +50,10 @@ function parseCreateSample(value: unknown): CreateSampleInput {
 
 export function registerIpc(window: BrowserWindow, service: LauncherService, workbench: WorkbenchService): void {
   ipcMain.handle("workbench:artifact", (_event, workspace: unknown, id: unknown) => result(() => workbench.artifact(requireText(workspace, "Workspace"), requireText(id, "Task ID"))));
-  ipcMain.handle("workbench:launch-artifact", (_event, workspace: unknown, id: unknown, project: unknown) => result(() => workbench.launchArtifact(requireText(workspace, "Workspace"), requireText(id, "Task ID"), project === undefined ? undefined : requireText(project, "Project"))));
+  ipcMain.handle("workbench:launch-artifact", (_event, workspace: unknown, id: unknown, project: unknown, fingerprint: unknown) => result(() => workbench.launchArtifact(requireText(workspace, "Workspace"), requireText(id, "Task ID"), project === undefined ? undefined : requireText(project, "Project"), requireText(fingerprint, "Publication fingerprint"))));
+  ipcMain.handle("workbench:copy-diagnostics", (_event, workspace: unknown, id: unknown) => result(async () => {
+    clipboard.writeText(formatBuildDiagnostic(await workbench.job(requireText(workspace, "Workspace"), requireText(id, "Task ID"))));
+  }));
   ipcMain.handle("workbench:workspaces", () => result(() => workbench.workspaces()));
   ipcMain.handle("workbench:choose-workspace", () => result(async () => {
     const selection = await dialog.showOpenDialog(window, { title: "选择 CrownEngine 源码工作区", buttonLabel: "选择工作区", properties: ["openDirectory", "dontAddToRecent"] });

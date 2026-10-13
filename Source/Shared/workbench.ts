@@ -59,6 +59,8 @@ export interface BuildJobView {
   progress: { phase: string; target: string; plannedActions: number | null; invalidatedActions: number | null } | null;
   result: { outcome: string; artifact: string; buildGraphFingerprint: string; actionGraphFingerprint: string } | null;
   timing?: { buildCompletedAt: string; buildDurationMs: number } | null;
+  publication?: { schemaVersion: 1; targetIdentity: string; artifact: string; manifestSha256: string; actionGraphFingerprint: string } | null;
+  diagnostics?: { schemaVersion: 1; firstErrors: string[]; productExitCode: number | null } | null;
   validation: "not-run";
   manualAcceptance: "pending";
   log: string | null;
@@ -97,7 +99,8 @@ export interface BuildHistory {
 
 export interface WorkbenchHost {
   artifact(workspace: string, jobId: string): Promise<Result<BuildArtifact>>;
-  launchArtifact(workspace: string, jobId: string, project?: string): Promise<Result<{ processId: number }>>;
+  launchArtifact(workspace: string, jobId: string, project?: string, fingerprint?: string): Promise<Result<{ processId: number }>>;
+  copyDiagnostics(workspace: string, jobId: string): Promise<Result<void>>;
   getWorkspaces(): Promise<Result<string[]>>;
   chooseWorkspace(): Promise<Result<string | null>>;
   connect(workspace: string): Promise<Result<BuildCapabilities>>;
@@ -112,12 +115,19 @@ export interface WorkbenchHost {
 export interface BuildArtifact {
   path: string;
   directory: string;
-  bytes: number;
-  executableBytes: number;
-  modifiedAt: string;
+  bytes: number | null;
+  executableBytes: number | null;
+  modifiedAt: string | null;
   measuredAt: string;
   canRun: boolean;
   runRequiresProject: boolean;
   buildCompletedAt: string | null;
   buildDurationMs: number | null;
+  identity: {
+    state: "matched" | "replaced" | "missing" | "damaged" | "unknown";
+    detail: string;
+    fingerprint: string | null;
+    verifiedFiles: number;
+    latestVerification?: { jobId: string; source: BuildCapabilities["source"]; configuration: string; features: Record<string, string>; completedAt: string | null };
+  };
 }

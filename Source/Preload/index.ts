@@ -4,7 +4,8 @@ import type { CrownHost } from "../Shared/contracts";
 const crownHost: CrownHost = {
   workbench: {
     artifact: (workspace, id) => ipcRenderer.invoke("workbench:artifact", workspace, id),
-    launchArtifact: (workspace, id, project) => ipcRenderer.invoke("workbench:launch-artifact", workspace, id, project),
+    launchArtifact: (workspace, id, project, fingerprint) => ipcRenderer.invoke("workbench:launch-artifact", workspace, id, project, fingerprint),
+    copyDiagnostics: (workspace, id) => ipcRenderer.invoke("workbench:copy-diagnostics", workspace, id),
     getWorkspaces: () => ipcRenderer.invoke("workbench:workspaces"),
     chooseWorkspace: () => ipcRenderer.invoke("workbench:choose-workspace"),
     connect: workspace => ipcRenderer.invoke("workbench:connect", workspace),

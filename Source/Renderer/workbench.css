@@ -117,5 +117,24 @@
 .artifact-actions .button, .artifact-heading .button { font-size: 13px; }
 .artifact-run-confirm { padding: 16px; border: 1px solid var(--line); border-radius: 10px; display: flex; flex-direction: column; gap: 12px; max-width: 600px; }
 .artifact-launched { color: var(--success); font-size: 12px; }
+.artifact-identity { padding: 14px 16px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); }
+.artifact-identity strong { font-weight: 500; color: var(--warning); }
+.artifact-identity.matched strong { color: var(--success); }
+.artifact-identity.damaged strong, .artifact-identity.missing strong { color: var(--danger); }
+.artifact-identity p, .artifact-provenance p, .artifact-task-timing > p { margin: 6px 0; color: var(--muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.artifact-identity small, .artifact-provenance small { color: var(--faint); font-size: 11px; line-height: 1.6; }
+.artifact-provenance h4, .artifact-task-timing h4 { font-weight: 500; font-size: 13px; margin: 0 0 8px; }
+.artifact-task-timing { border-top: 1px solid var(--line); padding-top: 18px; }
+.build-diagnostic { flex-shrink: 0; border: 1px solid #664039; background: #292120; border-radius: 9px; padding: 14px; color: var(--muted); }
+.build-diagnostic.cancelled, .build-diagnostic.interrupted { border-color: var(--line); background: var(--bg); }
+.diagnostic-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.diagnostic-heading h3 { flex: 1; min-width: 130px; margin: 0; font-size: 14px; font-weight: 500; }
+.diagnostic-heading .button { font-size: 12px; height: 30px; }
+.build-diagnostic p { font-size: 12px; line-height: 1.6; margin: 10px 0; overflow-wrap: anywhere; }
+.build-diagnostic dl { display: grid; grid-template-columns: 100px minmax(0,1fr); gap: 7px 10px; font-size: 12px; }
+.build-diagnostic dd { margin: 0; overflow-wrap: anywhere; }
+.build-diagnostic small { font-size: 11px; color: var(--faint); }
+.build-diagnostic pre { max-height: 130px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; background: var(--bg); padding: 10px; border-radius: 6px; }
+.build-diagnostic summary { font-size: 12px; cursor: pointer; }
 @media (max-width: 900px) { .artifact-metrics { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 1120px) { .workbench-page { padding: 20px 16px 10px; gap: 14px; } .build-layout { grid-template-columns: 236px minmax(0, 1fr); gap: 12px; } .build-config-fields, .build-task { padding: 14px; } .build-start-actions, .build-policy, .build-run-confirm { margin-left: 14px; margin-right: 14px; } .build-task-heading { flex-wrap: wrap; } .build-task-heading h2 { font-size: 18px; } .build-evidence { gap: 8px; } .build-log-heading { flex-wrap: wrap; } .build-log-heading > span { flex-basis: 100%; } }

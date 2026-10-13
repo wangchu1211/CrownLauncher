@@ -6,6 +6,7 @@ import type { BuildArtifact, BuildCapabilities, BuildDescription, BuildHistory, 
 import { writeFileAtomically } from "./Core/atomicFile";
 import { inspectProject } from "./Core/projectDescriptor";
 import { calculateDirectorySize } from "./Core/directorySize";
+import { inspectArtifact } from "./artifactIdentity";
 
 const executeFile = promisify(execFile);
 type Query = (executable: string, args: string[], cwd: string, timeout: number) => Promise<string>;
@@ -153,29 +154,30 @@ export class WorkbenchService {
   }
   async job(workspace: string, id: string): Promise<BuildJobView> { return this.command(workspace, ["job", "--job-id", this.jobId(id)]); }
   async cancel(workspace: string, id: string): Promise<void> { await this.command(workspace, ["cancel", "--job-id", this.jobId(id)]); }
-  private async artifactPath(workspace: string, entry: BuildJobView): Promise<string> {
-    if (!entry.result || !["build-passed", "run-passed"].includes(entry.result.outcome)) throw new Error("此任务没有经过验证的构建产物。");
-    const resolved = await realpath(path.resolve(workspace, entry.result.artifact));
-    const root = await realpath(path.join(workspace, "Build/CBT/Artifacts"));
-    const relative = path.relative(root, resolved);
-    if (!relative || relative.startsWith("..") || path.isAbsolute(relative) || !(await stat(resolved)).isFile()) throw new Error("产物不在 CBT 产物目录内。");
-    return resolved;
-  }
   async artifact(workspace: string, id: string): Promise<BuildArtifact> {
     const entry = await this.job(workspace, id);
-    const executable = await this.artifactPath(workspace, entry);
-    const info = await stat(executable);
+    const { executable, info, identity } = await inspectArtifact(workspace, entry);
+    if (identity.fingerprint) {
+      const history = await this.history(workspace);
+      const latest = history.jobs.filter(value => value.publication?.manifestSha256 === identity.fingerprint &&
+        value.job.target === entry.job.target && value.result?.artifact === entry.result?.artifact)
+        .sort((a, b) => (b.timing?.buildCompletedAt ?? "").localeCompare(a.timing?.buildCompletedAt ?? ""))[0];
+      if (latest) identity.latestVerification = { jobId: latest.job.id, source: latest.job.source, configuration: latest.job.configuration,
+        features: latest.job.features, completedAt: latest.timing?.buildCompletedAt ?? null };
+    }
     const capability = this.connection(workspace).targets.find(item => item.name === entry.job.target);
-    return { path: executable, directory: path.dirname(executable), bytes: await calculateDirectorySize(path.dirname(executable)), executableBytes: info.size,
-      modifiedAt: info.mtime.toISOString(), measuredAt: new Date().toISOString(),
-      canRun: Boolean(capability?.canRun && capability.runWorkingDirectory && /\.exe$/i.test(executable)),
+    return { path: executable, directory: path.dirname(executable), bytes: info ? await calculateDirectorySize(path.dirname(executable)) : null, executableBytes: info?.size ?? null,
+      modifiedAt: info?.mtime.toISOString() ?? null, measuredAt: new Date().toISOString(), identity,
+      canRun: Boolean(identity.fingerprint && capability?.canRun && ["RepositoryRoot", "ArtifactDirectory"].includes(capability.runWorkingDirectory || "") && /\.exe$/i.test(executable)),
       runRequiresProject: Boolean(capability?.runRequiresProject),
       buildCompletedAt: entry.timing?.buildCompletedAt ?? null, buildDurationMs: entry.timing?.buildDurationMs ?? null };
   }
-  async launchArtifact(workspace: string, id: string, project?: string): Promise<{ processId: number }> {
+  async launchArtifact(workspace: string, id: string, project?: string, fingerprint?: string): Promise<{ processId: number }> {
     const entry = await this.job(workspace, id);
     if (entry.job.state === "running" || entry.job.state === "queued") throw new Error("请等待本次任务结束后再直接运行产物。");
-    const executable = await this.artifactPath(workspace, entry);
+    const { executable, identity } = await inspectArtifact(workspace, entry);
+    if (!identity.fingerprint) throw new Error("当前产物未通过完整性核对，请刷新产物或重新构建。");
+    if (fingerprint !== identity.fingerprint) throw new Error("产物已变化或未确认版本，请刷新产物后重新确认运行。");
     const capability = this.connection(workspace).targets.find(item => item.name === entry.job.target);
     if (!capability?.canRun || !/\.exe$/i.test(executable)) throw new Error("此产物不支持直接运行。");
     const cwd = capability.runWorkingDirectory === "RepositoryRoot" ? workspace : capability.runWorkingDirectory === "ArtifactDirectory" ? path.dirname(executable) : null;
