@@ -38,17 +38,17 @@ export class ProjectRegistry {
         this.records = [];
         return;
       }
-      throw new Error(`Could not read the project registry: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`无法读取项目列表：${error instanceof Error ? error.message : String(error)}`);
     }
 
     let parsed: unknown;
     try {
       parsed = JSON.parse(text);
     } catch (error) {
-      throw new Error(`The project registry is invalid: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`项目列表文件无效：${error instanceof Error ? error.message : String(error)}`);
     }
     if (!parsed || typeof parsed !== "object" || (parsed as { schemaVersion?: unknown }).schemaVersion !== 1) {
-      throw new Error("Unsupported project registry schema version.");
+      throw new Error("不支持的项目列表格式版本。");
     }
     const values = Array.isArray((parsed as { projects?: unknown }).projects)
       ? (parsed as { projects: unknown[] }).projects

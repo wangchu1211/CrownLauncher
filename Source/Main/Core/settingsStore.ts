@@ -47,7 +47,7 @@ export class SettingsStore {
     try {
       const parsed = JSON.parse(await readFile(this.storagePath, "utf8")) as Partial<LauncherSettings>;
       if (parsed.schemaVersion !== 1) {
-        throw new Error("Unsupported Launcher settings schema version.");
+        throw new Error("不支持的 Launcher 设置格式版本。");
       }
       const restored: LauncherSettings = {
         schemaVersion: 1,
@@ -92,7 +92,7 @@ export class SettingsStore {
         throw new Error("not a directory");
       }
     } catch {
-      throw new Error("The default project directory must exist.");
+      throw new Error("默认项目目录必须存在且可以访问。");
     }
     this.value = {
       schemaVersion: 1,

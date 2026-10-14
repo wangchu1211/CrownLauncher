@@ -2,12 +2,13 @@ import { Children, createElement, isValidElement, type ComponentProps, type Keyb
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { ProjectInspector, ProjectRow, ProjectsPage, SamplesPage, SettingsDialog, Sidebar } from "../Source/Renderer/App";
+import { WorkbenchPage } from "../Source/Renderer/WorkbenchPage";
 import type { LauncherSnapshot, ProjectView } from "../Source/Shared/contracts";
 
 const noop = () => {};
 const project: ProjectView = {
   projectId: "test-project", name: "LookDev 项目", path: "D:/Crown/项目/LookDev", health: "ready",
-  message: "", pinned: false, lastOpenedAt: "2026-10-12T08:00:00Z", lastOpenedLabel: "Today",
+  message: "", pinned: false, lastOpenedAt: "2026-10-12T08:00:00Z", lastOpenedLabel: "2026-10-12 16:00",
   scripting: true, manifest: "LookDev.crownproject", editorVersion: "Current",
 };
 const snapshot: LauncherSnapshot = {
@@ -16,20 +17,49 @@ const snapshot: LauncherSnapshot = {
   editor: { ready: true, executable: "D:/Editor/crown_editor_qt.exe", version: "Current", error: "" },
   settings: { defaultProjectDirectory: "D:/Projects", editorExecutable: "" },
 };
-const size = { status: "idle" as const, label: "Calculate", title: "Calculate project size" };
+const size = { status: "idle" as const, label: "计算大小", title: "计算整个项目目录的大小。" };
 const pageProps: ComponentProps<typeof ProjectsPage> = {
   snapshot, selected: project, projectSize: size, search: "", setSearch: noop, onSelect: noop,
-  onImport: noop, onNew: noop, onCreateSample: noop, onOpen: noop, onPin: noop, onReveal: noop,
+  onImport: noop, onNew: noop, onOpen: noop, onPin: noop, onReveal: noop,
   onCalculateSize: noop, onRelink: noop, onRemove: noop, onDelete: noop, onConfigure: noop,
 };
 
 describe("Launcher presentation", () => {
+  it("uses the shared page container and heading structure on every main page", () => {
+    const pages = [
+      createElement(ProjectsPage, pageProps),
+      createElement(SamplesPage, { samples: snapshot.samples, editor: snapshot.editor, onRefresh: noop, onCreate: noop, onConfigure: noop }),
+      createElement(WorkbenchPage),
+    ];
+    for (const page of pages) {
+      const html = renderToStaticMarkup(page);
+      expect(html).toMatch(/<main class="launcher-page [^"]+"/);
+      expect(html.match(/<header class="page-heading">/g)).toHaveLength(1);
+      expect(html).toContain('<div class="page-heading-copy"><h1>');
+      expect(html).toContain('class="heading-actions"');
+    }
+  });
+
+  it("keeps installation previews and sample creation on the Samples page only", () => {
+    const samples = [{ ...snapshot.samples[0]!, coverDataUrl: "data:image/jpeg;base64,installed" }];
+    const card = renderToStaticMarkup(createElement(SamplesPage, { samples, editor: snapshot.editor, onRefresh: noop, onCreate: noop, onConfigure: noop }));
+    expect(card).toContain('src="data:image/jpeg;base64,installed"');
+    expect(card).toContain('alt="LookDev Gallery 的示例预览"');
+    expect(card).toContain("创建副本");
+    const projects = renderToStaticMarkup(createElement(ProjectsPage, { ...pageProps, snapshot: { ...snapshot, samples } }));
+    expect(projects).not.toContain("featured-sample");
+    expect(projects).not.toContain("探索 Crown");
+    expect(projects).not.toContain("创建副本");
+    expect(projects).not.toContain('src="data:image/jpeg;base64,installed"');
+    expect(projects).toContain('class="project-row selected"');
+  });
+
   it.each([true, false])("keeps Editor readiness in the settings description and tooltip: %s", ready => {
     const html = renderToStaticMarkup(createElement(Sidebar, {
       page: "projects", snapshot: { ...snapshot, editor: { ...snapshot.editor, ready } },
       onPage: noop, onSettings: noop,
     }));
-    const description = `CrownEditor · ${ready ? "Ready to launch" : "Setup required"}`;
+    const description = `CrownEditor · ${ready ? "可以启动" : "需要配置"}`;
     expect(html).toContain(`aria-description="${description}"`);
     expect(html).toContain(`<small>${description}</small>`);
     expect(html.includes('class="connected"')).toBe(ready);
@@ -41,16 +71,18 @@ describe("Launcher presentation", () => {
     }));
     expect(html.match(/<nav\b/g)).toHaveLength(1);
     expect(html.match(/<button\b/g)).toHaveLength(4);
-    for (const label of ["Projects", "Samples", "构建", "Settings"]) {
+    for (const label of ["项目", "示例", "构建", "设置"]) {
       expect(html.match(new RegExp(`aria-label="${label}"`, "g"))).toHaveLength(1);
       expect(html).toContain(`class="nav-tooltip" aria-hidden="true">${label}`);
     }
     // Use one styled tooltip, not a second delayed native title tooltip.
     expect(html).not.toContain('title="');
     expect(html.match(/aria-current="page"/g)).toHaveLength(1);
-    expect(html).toContain(`aria-label="${page === "build" ? "构建" : page[0]!.toUpperCase() + page.slice(1)}" aria-current="page"`);
+    expect(html).toContain(`aria-label="${({ projects: "项目", samples: "示例", build: "构建" })[page]}" aria-current="page"`);
     expect(html).not.toContain("sidebar-projects");
     expect(html).not.toContain("sidebar-toggle");
+    expect(html).not.toContain("sidebar-brand");
+    expect(html).not.toContain("<img");
     expect(html).not.toContain(project.name);
   });
 
@@ -71,22 +103,22 @@ describe("Launcher presentation", () => {
       expect(matching[0]!.props.onClick).toBeTypeOf("function");
       matching[0]!.props.onClick!();
     };
-    for (const label of ["Projects", "Samples", "构建"]) click(node => node.props.label === label);
+    for (const label of ["项目", "示例", "构建"]) click(node => node.props.label === label);
     expect(onPage.mock.calls).toEqual([["projects"], ["samples"], ["build"]]);
     expect(onSettings).not.toHaveBeenCalled();
-    click(node => node.props.label === "Settings");
+    click(node => node.props.label === "设置");
     expect(onSettings).toHaveBeenCalledOnce();
     expect(onPage).toHaveBeenCalledTimes(3);
   });
 
   it("filters names and paths case-insensitively and reports the filtered count", () => {
     const html = renderToStaticMarkup(createElement(ProjectsPage, { ...pageProps, search: " 项目/LOOKDEV " }));
-    expect(html).toContain('role="status">1 project');
+    expect(html).toContain('role="status">1 个项目');
     expect(html).toContain('class="project-row selected"');
-    expect(html).toContain("Create a copy");
+    expect(html).not.toContain("创建副本");
     const empty = renderToStaticMarkup(createElement(ProjectsPage, { ...pageProps, search: "no-match" }));
-    expect(empty).toContain("No matching projects");
-    expect(empty).toContain('role="status">0 projects');
+    expect(empty).toContain("没有匹配的项目");
+    expect(empty).toContain('role="status">0 个项目');
     expect(empty).not.toContain('class="project-row selected"');
   });
 
@@ -94,8 +126,8 @@ describe("Launcher presentation", () => {
     const html = renderToStaticMarkup(createElement(ProjectsPage, {
       ...pageProps, snapshot: { ...snapshot, templates: [], samples: [], projects: [] }, selected: null,
     }));
-    expect(html).toMatch(/<button[^>]+disabled=""[^>]*><span aria-hidden="true">＋<\/span> New Project/);
-    expect(html).toContain("Your next idea starts here");
+    expect(html).toMatch(/<button[^>]+disabled=""[^>]*><span aria-hidden="true">＋<\/span> 新建项目/);
+    expect(html).toContain("从这里开始你的新创意");
     expect(html).not.toContain("featured-sample");
   });
 
@@ -104,13 +136,13 @@ describe("Launcher presentation", () => {
       project, projectSize: size, editorReady: true, menuOpen: false, onMenu: noop, onReveal: noop,
       onCalculateSize: noop, onOpen: noop, onRelink: noop, onRemove: noop, onDelete: noop, onConfigure: noop,
     };
-    expect(renderToStaticMarkup(createElement(ProjectInspector, props))).toContain("Open in CrownEditor");
-    expect(renderToStaticMarkup(createElement(ProjectInspector, { ...props, editorReady: false }))).toContain("Configure CrownEditor");
+    expect(renderToStaticMarkup(createElement(ProjectInspector, props))).toContain("在 CrownEditor 中打开");
+    expect(renderToStaticMarkup(createElement(ProjectInspector, { ...props, editorReady: false }))).toContain("配置 CrownEditor");
     const missing = renderToStaticMarkup(createElement(ProjectInspector, { ...props, project: { ...project, health: "missing", message: "Moved folder" } }));
-    expect(missing).toContain("Relink Project");
+    expect(missing).toContain("重新定位项目");
     expect(missing).toContain("Moved folder");
     const invalid = renderToStaticMarkup(createElement(ProjectInspector, { ...props, project: { ...project, health: "invalid" } }));
-    expect(invalid).toMatch(/disabled=""[^>]*>Open in CrownEditor/);
+    expect(invalid).toMatch(/disabled=""[^>]*>在 CrownEditor 中打开/);
   });
 
   it("keeps keyboard selection separate from opening and ignores nested pin key events", () => {
@@ -136,7 +168,7 @@ describe("Launcher presentation", () => {
     const props = { samples: snapshot.samples, editor: snapshot.editor, onRefresh: noop, onCreate: noop, onConfigure: noop };
     const html = renderToStaticMarkup(createElement(SamplesPage, props));
     expect(html).toContain("LookDev Gallery");
-    expect(html).toContain("Create Copy");
+    expect(html).toContain("创建副本");
     expect(html).toContain(snapshot.editor.executable);
     expect(html).toContain("与 Windows 账号无关");
     expect(html).toContain("切换引擎");
@@ -144,7 +176,7 @@ describe("Launcher presentation", () => {
     expect(empty).toContain("尚未找到 CrownEditor");
     expect(empty).toContain("配置 CrownEditor");
     expect(empty).toContain("Missing selected Editor");
-    expect(renderToStaticMarkup(createElement(SamplesPage, { ...props, samples: [] }))).toContain("当前引擎未安装 Samples");
+    expect(renderToStaticMarkup(createElement(SamplesPage, { ...props, samples: [] }))).toContain("当前引擎未安装示例");
   });
 
   it("keeps the settings override blank while displaying the automatically resolved Editor", () => {

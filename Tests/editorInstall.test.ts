@@ -58,7 +58,7 @@ describe("Editor resolution", () => {
     const missing = path.join(root, "missing", executableName);
     const result = await resolveEditorInstall(root, missing);
     expect(result.executable).toBe(missing);
-    expect(result.error).toContain("clear the override");
+    expect(result.error).toContain("清空手动路径");
     expect(result.samplesRoot).toBe("");
     vi.stubEnv("CROWN_EDITOR_EXECUTABLE", missing);
     expect((await resolveEditorInstall(root, "")).error).toContain(missing);
@@ -79,7 +79,7 @@ describe("Editor resolution", () => {
     const app = path.join(root, "unrelated-app");
     const result = await resolveEditorInstall(app, "");
     expect(result.executable).toBe("");
-    expect(result.error).toContain("Launcher Settings");
+    expect(result.error).toContain("Launcher 设置");
   });
 });
 
@@ -132,6 +132,8 @@ describe.skipIf(process.platform !== "win32")("nearby CBT discovery", () => {
       scripting: { enabled: false, projectFile: "", assemblyName: "" }, root: sample,
       manifestPath: path.join(sample, "LookDev.crownproject") }, path.join(sample, "LookDev.crownproject"));
     await file(path.join(sample, "sample.json"), JSON.stringify({ schemaVersion: 1, id: "lookdev", displayName: "LookDev" }));
+    const cover = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+    await writeFile(path.join(sample, "ProjectCover.jpg"), cover);
     await file(path.join(install, "Templates", "Empty", "template.json"), JSON.stringify({ id: "empty", displayName: "Empty" }));
     const services = [];
     for (const account of ["account-a", "account-b"]) {
@@ -145,8 +147,12 @@ describe.skipIf(process.platform !== "win32")("nearby CBT discovery", () => {
     const first = await services[0]!.snapshot(), second = await services[1]!.snapshot();
     expect(first.samples).toEqual(second.samples);
     expect(second.samples[0]?.id).toBe("lookdev");
+    expect(second.samples[0]?.coverDataUrl).toBe(`data:image/jpeg;base64,${cover.toString("base64")}`);
     expect(second.templates[0]?.id).toBe("empty");
     expect(first.projects[0]?.path).toBe(created.path);
+    expect(first.projects[0]?.coverDataUrl).toBe(second.samples[0]?.coverDataUrl);
+    await writeFile(path.join(created.path, "ProjectCover.jpg"), "changed in the user's copy");
+    expect((await services[0]!.snapshot()).samples[0]?.coverDataUrl).toBe(second.samples[0]?.coverDataUrl);
     expect(second.projects).toEqual([]);
     expect(second.editor.executable).toBe(executable);
     expect(second.settings.editorExecutable).toBe("");
@@ -156,6 +162,10 @@ describe.skipIf(process.platform !== "win32")("nearby CBT discovery", () => {
     await services[1]!.saveSettings({ ...second.settings, editorExecutable: alternate });
     expect((await services[1]!.snapshot()).samples).toEqual([]);
     expect((await services[0]!.snapshot()).samples).toHaveLength(1);
+    await writeFile(path.join(sample, "ProjectCover.jpg"), "invalid image");
+    const brokenCover = await services[0]!.snapshot();
+    expect(brokenCover.editor.ready).toBe(true);
+    expect(brokenCover.samples[0]?.coverDataUrl).toBe("");
   });
 });
 

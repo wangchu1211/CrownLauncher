@@ -44,7 +44,7 @@ function stringArray(value: unknown, directoryName: string): string[] {
   const result: string[] = [];
   for (const entry of value) {
     if (typeof entry !== "string" || !isSafeRelativePath(entry.trim())) {
-      throw new Error(`Project template ${directoryName} contains an unsafe path.`);
+      throw new Error(`项目模板 ${directoryName} 包含不安全的路径。`);
     }
     result.push(entry.trim());
   }
@@ -68,7 +68,7 @@ export async function loadProjectTemplates(templatesRoot: string): Promise<Proje
     const id = typeof object.id === "string" ? object.id.trim() : "";
     const displayName = typeof object.displayName === "string" ? object.displayName.trim() : "";
     if (!id || !displayName) {
-      throw new Error(`Project template ${directoryName} is missing required metadata.`);
+      throw new Error(`项目模板 ${directoryName} 缺少必要的元数据。`);
     }
     templates.push({
       id,
@@ -97,11 +97,11 @@ export async function loadProjectSamples(samplesRoot: string): Promise<ProjectSa
     const id = typeof object.id === "string" ? object.id.trim() : "";
     const displayName = typeof object.displayName === "string" ? object.displayName.trim() : "";
     if (object.schemaVersion !== 1 || !id || !displayName || ids.has(id)) {
-      throw new Error(`Sample ${directoryName} has invalid or duplicate metadata.`);
+      throw new Error(`示例 ${directoryName} 的元数据无效或重复。`);
     }
     const startupLevel = typeof object.startupLevel === "string" ? object.startupLevel.trim() : "";
     if (startupLevel && !isSafeRelativePath(startupLevel)) {
-      throw new Error(`Sample ${directoryName} contains an unsafe startup level.`);
+      throw new Error(`示例 ${directoryName} 的启动关卡路径不安全。`);
     }
     if (startupLevel) {
       try {
@@ -109,12 +109,12 @@ export async function loadProjectSamples(samplesRoot: string): Promise<ProjectSa
           throw new Error("not a file");
         }
       } catch {
-        throw new Error(`Sample ${directoryName} startup level does not exist.`);
+        throw new Error(`示例 ${directoryName} 的启动关卡不存在。`);
       }
     }
     const inspection = await inspectProject(root);
     if (inspection.health !== "ready") {
-      throw new Error(`Sample ${directoryName} is not a valid Crown project: ${inspection.message}`);
+      throw new Error(`示例 ${directoryName} 不是有效的 Crown 项目：${inspection.message}`);
     }
     ids.add(id);
     samples.push({

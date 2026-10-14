@@ -18,14 +18,15 @@ import { inspectProject } from "./Core/projectDescriptor";
 import { ProjectRegistry, type ProjectRecord } from "./Core/projectRegistry";
 import { SettingsStore } from "./Core/settingsStore";
 import { isPathWithin } from "./Core/paths";
+import { readProjectCover } from "./Core/projectCover";
 
 function lastOpenedLabel(value: string): string {
   if (!value) {
-    return "Never";
+    return "从未打开";
   }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    return "Never";
+    return "从未打开";
   }
   const parts = new Intl.DateTimeFormat("en-CA", {
     year: "numeric",
@@ -48,7 +49,7 @@ export class LauncherService {
     templatesRoot: "",
     samplesRoot: "",
     displayVersion: "Current",
-    error: "CrownEditor was not found. Configure its executable in Launcher Settings.",
+    error: "未找到 CrownEditor，请在 Launcher 设置中指定可执行文件。",
   };
   private templates: ProjectTemplateInfo[] = [];
   private samples: ProjectSampleInfo[] = [];
@@ -90,13 +91,16 @@ export class LauncherService {
         description,
         supportsScripting,
       })),
-      samples: this.samples.map(({ id, displayName, description, category, sourceProject }) => ({
+      samples: await Promise.all(this.samples.map(async ({ id, displayName, description, category, sourceProject, root }) => ({
         id,
         displayName,
         description,
         category,
         scripting: sourceProject.scripting.enabled,
-      })),
+        // Preview belongs to the selected installation, never to an account's
+        // writable sample copy. Use the same bounded read as project covers.
+        coverDataUrl: await readProjectCover(root),
+      }))),
       editor: {
         ready: !this.editor.error,
         executable: this.editor.executable || settings.editorExecutable,
@@ -124,7 +128,7 @@ export class LauncherService {
     await this.refreshInstall();
     const template = this.templates.find((entry) => entry.id === input.templateId);
     if (!template) {
-      throw new Error("Choose a valid project template.");
+      throw new Error("请选择有效的项目模板。");
     }
     const descriptor = await createProject({ ...input, template });
     const record = await this.registry.addOrUpdate(descriptor);
@@ -136,7 +140,7 @@ export class LauncherService {
     await this.refreshInstall();
     const sample = this.samples.find((entry) => entry.id === input.sampleId);
     if (!sample) {
-      throw new Error("Choose a valid installed sample.");
+      throw new Error("请选择有效的已安装示例。");
     }
     const descriptor = await createProjectFromSample({
       displayName: input.displayName,
@@ -174,7 +178,7 @@ export class LauncherService {
         stdio: "ignore",
         windowsHide: false,
       });
-      child.once("error", (error) => reject(new Error(`CrownEditor could not be started: ${error.message}`)));
+      child.once("error", (error) => reject(new Error(`无法启动 CrownEditor：${error.message}`)));
       child.once("spawn", () => {
         child.unref();
         resolve();
@@ -193,7 +197,7 @@ export class LauncherService {
   public async getProjectSize(projectRoot: string): Promise<number> {
     const record = this.registry.getRecord(projectRoot);
     if (!record) {
-      throw new Error("The project is no longer registered.");
+      throw new Error("该项目已不在项目列表中。");
     }
     return calculateDirectorySize(record.path);
   }
@@ -204,14 +208,14 @@ export class LauncherService {
   ): Promise<void> {
     const record = this.registry.getRecord(projectRoot);
     if (!record) {
-      throw new Error("The project is no longer registered.");
+      throw new Error("该项目已不在项目列表中。");
     }
     const inspection = await inspectProject(record.path);
     if (inspection.health !== "ready") {
-      throw new Error("Only a valid Crown project can be permanently deleted.");
+      throw new Error("只能永久删除有效的 Crown 项目。");
     }
     if (inspection.descriptor.projectId !== record.projectId) {
-      throw new Error("The project identity no longer matches its Launcher record.");
+      throw new Error("项目标识与 Launcher 中的记录不再匹配。");
     }
 
     const root = inspection.descriptor.root;
@@ -229,19 +233,19 @@ export class LauncherService {
     const overlapsApplicationData = isolatedProtectedRoots.some((protectedRoot) =>
       isPathWithin(protectedRoot, root) || isPathWithin(root, protectedRoot));
     if (containsBroadRoot || overlapsApplicationData) {
-      throw new Error("The project location is too broad to delete safely.");
+      throw new Error("项目位置涉及受保护目录，无法安全删除。");
     }
 
     await deleteDirectory(root);
     if (!this.registry.remove(root)) {
-      throw new Error("The deleted project record could not be removed from Launcher.");
+      throw new Error("项目文件已删除，但无法从 Launcher 中移除记录。");
     }
     await this.registry.save();
   }
 
   public async setPinned(projectRoot: string, pinned: boolean): Promise<void> {
     if (!this.registry.setPinned(projectRoot, pinned)) {
-      throw new Error("The project is no longer registered.");
+      throw new Error("该项目已不在项目列表中。");
     }
     await this.registry.save();
   }
@@ -252,14 +256,14 @@ export class LauncherService {
       throw new Error(inspection.message);
     }
     if (inspection.descriptor.projectId !== projectId) {
-      throw new Error("The selected folder belongs to a different Crown project.");
+      throw new Error("所选文件夹属于另一个 Crown 项目。");
     }
     if (!await this.registry.relink(projectId, inspection.descriptor.root)) {
-      throw new Error("The missing project record could not be relinked.");
+      throw new Error("无法重新关联缺失的项目记录。");
     }
     const record = this.registry.getRecords().find((entry) => entry.projectId === projectId);
     if (!record) {
-      throw new Error("The relinked project record could not be restored.");
+      throw new Error("无法恢复重新关联后的项目记录。");
     }
     await this.registry.save();
     return this.toProjectView(record);
@@ -296,6 +300,7 @@ export class LauncherService {
       scripting: descriptor?.scripting.enabled ?? false,
       manifest: descriptor?.manifestPath ?? "",
       editorVersion: descriptor?.editorVersion ?? "Current",
+      coverDataUrl: descriptor && descriptor.projectId === record.projectId ? await readProjectCover(descriptor.root) : "",
     };
   }
 }

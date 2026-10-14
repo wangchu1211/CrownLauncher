@@ -14,6 +14,7 @@ export interface ProjectView {
   scripting: boolean;
   manifest: string;
   editorVersion: string;
+  coverDataUrl?: string;
 }
 
 export interface ProjectTemplateView {
@@ -29,6 +30,7 @@ export interface ProjectSampleView {
   description: string;
   category: string;
   scripting: boolean;
+  coverDataUrl?: string;
 }
 
 export interface EditorInstallView {

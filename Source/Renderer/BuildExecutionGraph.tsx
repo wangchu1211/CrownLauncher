@@ -180,14 +180,14 @@ function ExecutionCanvas({ graph }: { graph: ExecutionGraph }) {
   </div>;
 }
 
-export function BuildExecutionGraph({ entry }: { entry: BuildJobView }) {
+export function BuildExecutionGraph({ entry, visible = true }: { entry: BuildJobView; visible?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const [chosen, setChosen] = useState("");
   useEffect(() => {
     const key = (event: KeyboardEvent) => { if (event.key === "Escape") setExpanded(false); };
-    if (expanded) window.addEventListener("keydown", key);
+    if (expanded && visible) window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [expanded]);
+  }, [expanded, visible]);
   const graphs = entry.execution?.graphs ?? [];
   // Dependency products publish separate graphs before the requested Target.
   // Never replace the user's view with the latest arrival during polling.

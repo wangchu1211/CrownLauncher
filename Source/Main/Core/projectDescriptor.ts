@@ -39,7 +39,7 @@ async function loadDescriptor(projectRootOrManifest: string): Promise<ProjectDes
 
   if (requestedStat.isFile()) {
     if (path.extname(requested).toLocaleLowerCase("en-US") !== ".crownproject") {
-      throw new Error("The selected file is not a .crownproject file.");
+      throw new Error("所选文件不是 .crownproject 文件。");
     }
     manifestPath = requested;
     root = path.dirname(requested);
@@ -48,33 +48,33 @@ async function loadDescriptor(projectRootOrManifest: string): Promise<ProjectDes
       .filter((entry) => entry.isFile() && path.extname(entry.name).toLocaleLowerCase("en-US") === ".crownproject")
       .map((entry) => path.join(requested, entry.name));
     if (manifests.length === 0) {
-      throw new Error("The project does not contain a .crownproject file.");
+      throw new Error("项目中没有 .crownproject 文件。");
     }
     if (manifests.length !== 1) {
-      throw new Error("The project must contain exactly one .crownproject file.");
+      throw new Error("项目中必须且只能有一个 .crownproject 文件。");
     }
     manifestPath = manifests[0] as string;
   } else {
-    throw new Error("The selected project path is not a directory or file.");
+    throw new Error("所选项目路径不是目录或文件。");
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(await readFile(manifestPath, "utf8"));
   } catch (error) {
-    throw new Error(`The project manifest is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`项目描述文件不是有效的 JSON：${error instanceof Error ? error.message : String(error)}`);
   }
   const object = readObject(parsed);
   if (!object || object.schemaVersion !== 1) {
-    throw new Error(`Unsupported project manifest schema version ${String(object?.schemaVersion ?? "unknown")}.`);
+    throw new Error(`不支持的项目描述文件格式版本：${String(object?.schemaVersion ?? "未知")}。`);
   }
   const uuidMatch = typeof object.projectId === "string" ? uuidPattern.exec(object.projectId) : null;
   if (!uuidMatch?.[1]) {
-    throw new Error("The project manifest contains an invalid projectId.");
+    throw new Error("项目描述文件中的 projectId 无效。");
   }
   const displayName = typeof object.displayName === "string" ? object.displayName.trim() : "";
   if (!displayName) {
-    throw new Error("The project manifest contains an empty displayName.");
+    throw new Error("项目描述文件中的 displayName 不能为空。");
   }
 
   const scriptingObject = readObject(object.scripting) ?? {};
@@ -82,7 +82,7 @@ async function loadDescriptor(projectRootOrManifest: string): Promise<ProjectDes
   const projectFile = typeof scriptingObject.projectFile === "string" ? scriptingObject.projectFile.trim() : "";
   const assemblyName = typeof scriptingObject.assemblyName === "string" ? scriptingObject.assemblyName.trim() : "";
   if (enabled && (!isSafeRelativePath(projectFile) || !assemblyName)) {
-    throw new Error("The project manifest contains an invalid scripting configuration.");
+    throw new Error("项目描述文件中的脚本配置无效。");
   }
 
   const descriptor: ProjectDescriptor = {
@@ -104,28 +104,28 @@ export async function inspectProject(projectRoot: string): Promise<ProjectInspec
   try {
     const rootStat = await stat(root);
     if (!rootStat.isDirectory()) {
-      return { health: "invalid", message: "The project root is not a readable directory.", root };
+      return { health: "invalid", message: "项目根目录不存在或不可读取。", root };
     }
   } catch {
-    return { health: "missing", message: "The registered project location is missing.", root };
+    return { health: "missing", message: "已登记的项目位置不存在，请重新定位。", root };
   }
 
   try {
     const descriptor = await loadDescriptor(root);
     if (!(await stat(path.join(root, "Assets"))).isDirectory()) {
-      return { health: "invalid", message: "The project does not contain an Assets directory.", root };
+      return { health: "invalid", message: "项目中没有 Assets 目录。", root };
     }
     if (descriptor.scripting.enabled) {
       const scriptProject = path.resolve(root, descriptor.scripting.projectFile);
       if (!isPathWithin(scriptProject, root)) {
-        return { health: "invalid", message: "The script project escapes the project root.", root };
+        return { health: "invalid", message: "脚本项目路径超出了项目根目录。", root };
       }
       try {
         if (!(await stat(scriptProject)).isFile()) {
           throw new Error("not a file");
         }
       } catch {
-        return { health: "invalid", message: "The configured C# project file is missing or unreadable.", root };
+        return { health: "invalid", message: "配置的 C# 项目文件缺失或不可读取。", root };
       }
     }
     return { health: "ready", message: "", descriptor, root };

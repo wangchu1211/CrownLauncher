@@ -20,7 +20,7 @@ async function ensureParent(parentDirectory: string): Promise<string> {
       throw new Error("not a directory");
     }
   } catch {
-    throw new Error("The selected project parent directory does not exist.");
+    throw new Error("所选项目父目录不存在或无法访问。");
   }
   return parent;
 }
@@ -38,10 +38,10 @@ async function copyTree(
     const source = path.join(sourceRoot, relative);
     const destination = path.join(destinationRoot, relative);
     if (!isPathWithin(destination, destinationRoot)) {
-      throw new Error("A project source path escapes its destination root.");
+      throw new Error("项目源文件路径超出了目标根目录。");
     }
     if (entry.isSymbolicLink()) {
-      throw new Error("Project sources cannot contain symbolic links.");
+      throw new Error("项目源文件不能包含符号链接。");
     }
     if (entry.isDirectory()) {
       await mkdir(destination, { recursive: true });
@@ -82,16 +82,16 @@ export async function createProject(input: {
 }): Promise<ProjectDescriptor> {
   const name = input.displayName.trim();
   if (!isValidProjectDirectoryName(name)) {
-    throw new Error("Project names cannot be empty or contain < > : \" / \\ | ? *.");
+    throw new Error("项目名称不能为空，也不能包含 < > : \" / \\ | ? *，或以句点结尾。");
   }
   if (input.enableScripting && !input.template.supportsScripting) {
-    throw new Error("The selected template does not support C# scripting.");
+    throw new Error("所选模板不支持 C# 脚本。");
   }
   const parent = await ensureParent(input.parentDirectory);
   const finalRoot = path.join(parent, name);
   try {
     await stat(finalRoot);
-    throw new Error("The project destination already exists.");
+    throw new Error("项目目标目录已存在，请更换名称或保存位置。");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
       throw error;
@@ -105,7 +105,7 @@ export async function createProject(input: {
     for (const relative of input.template.directories) {
       const destination = path.join(stagingRoot, relative);
       if (!isSafeRelativePath(relative) || !isPathWithin(destination, stagingRoot)) {
-        throw new Error("A template directory escapes the project root.");
+        throw new Error("模板目录超出了项目根目录。");
       }
       await mkdir(destination, { recursive: true });
     }
@@ -122,7 +122,7 @@ export async function createProject(input: {
     for (const relative of input.template.textFiles) {
       const filePath = path.join(stagingRoot, relative);
       if (!isPathWithin(filePath, stagingRoot)) {
-        throw new Error("A template text file escapes the project root.");
+        throw new Error("模板文本文件路径超出了项目根目录。");
       }
       const expanded = (await readFile(filePath, "utf8"))
         .replaceAll("{{PROJECT_NAME}}", name)
@@ -150,7 +150,7 @@ export async function createProject(input: {
     await writeProjectDescriptor(descriptor, descriptor.manifestPath);
     const inspection = await inspectProject(stagingRoot);
     if (inspection.health !== "ready") {
-      throw new Error(`The generated project failed validation: ${inspection.message}`);
+      throw new Error(`新建项目校验失败：${inspection.message}`);
     }
     await rename(stagingRoot, finalRoot);
     return { ...descriptor, root: finalRoot, manifestPath: path.join(finalRoot, path.basename(descriptor.manifestPath)) };
@@ -169,17 +169,17 @@ export async function createProjectFromSample(input: {
 }): Promise<ProjectDescriptor> {
   const name = input.displayName.trim();
   if (!isValidProjectDirectoryName(name)) {
-    throw new Error("Project names cannot be empty or contain < > : \" / \\ | ? *.");
+    throw new Error("项目名称不能为空，也不能包含 < > : \" / \\ | ? *，或以句点结尾。");
   }
   const sourceInspection = await inspectProject(input.sample.root);
   if (sourceInspection.health !== "ready") {
-    throw new Error(`The installed sample is invalid: ${sourceInspection.message}`);
+    throw new Error(`已安装的示例无效：${sourceInspection.message}`);
   }
   const parent = await ensureParent(input.parentDirectory);
   const finalRoot = path.join(parent, name);
   try {
     await stat(finalRoot);
-    throw new Error("The project destination already exists.");
+    throw new Error("项目目标目录已存在，请更换名称或保存位置。");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
       throw error;
@@ -209,7 +209,7 @@ export async function createProjectFromSample(input: {
     await writeProjectDescriptor(descriptor, descriptor.manifestPath);
     const generated = await inspectProject(stagingRoot);
     if (generated.health !== "ready") {
-      throw new Error(`The generated sample failed validation: ${generated.message}`);
+      throw new Error(`示例副本校验失败：${generated.message}`);
     }
     await rename(stagingRoot, finalRoot);
     return { ...descriptor, root: finalRoot, manifestPath: path.join(finalRoot, path.basename(descriptor.manifestPath)) };

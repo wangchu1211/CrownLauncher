@@ -8,6 +8,7 @@ import { defaultBuildTarget, targetWarning } from "./buildTargets";
 import { BuildExecutionGraph } from "./BuildExecutionGraph";
 import { BuildArtifacts } from "./BuildArtifacts";
 import { BuildDiagnostic } from "./BuildDiagnostic";
+import { PageHeading } from "./PageHeading";
 import "./workbench.css";
 
 function unwrap<T>(result: Result<T>): T { if (!result.ok) throw new Error(result.error); return result.value; }
@@ -15,7 +16,7 @@ const message = (error: unknown) => error instanceof Error ? error.message : Str
 const active = (job: BuildJobView) => job.job.state === "queued" || job.job.state === "running";
 function time(value: string | null) { return value ? new Date(value).toLocaleString("zh-CN") : "—"; }
 
-export function BuildTaskDetails({ entry, onCancel, onReveal }: { entry: BuildJobView | null; onCancel: () => void; onReveal: (item: "log" | "artifact") => void }) {
+export function BuildTaskDetails({ entry, onCancel, onReveal, visible = true }: { entry: BuildJobView | null; onCancel: () => void; onReveal: (item: "log" | "artifact") => void; visible?: boolean }) {
   const [tab, setTab] = useState<"summary" | "graph" | "log" | "artifacts">("graph");
   const logRef = useRef<HTMLPreElement>(null);
   const follow = useRef(true);
@@ -43,7 +44,7 @@ export function BuildTaskDetails({ entry, onCancel, onReveal }: { entry: BuildJo
     <BuildDiagnostic key={job.id} entry={entry} onLog={() => onReveal("log")} />
     {job.runProject && <p className="build-run-project-record">运行项目：{job.runProject}</p>}
     {progress?.phase === "running-product" && active(entry) && <p className="build-notice">程序正在运行，退出后任务才会结束。取消任务也会停止本任务启动的程序。</p>}
-    <div className="build-tab-panel" id="build-panel-graph" role="tabpanel" aria-labelledby="build-tab-graph" hidden={tab !== "graph"}><BuildExecutionGraph key={job.id} entry={entry} /></div>
+    <div className="build-tab-panel" id="build-panel-graph" role="tabpanel" aria-labelledby="build-tab-graph" hidden={tab !== "graph"}><BuildExecutionGraph key={job.id} entry={entry} visible={visible && tab === "graph"} /></div>
     <div className="build-tab-panel" id="build-panel-artifacts" role="tabpanel" aria-labelledby="build-tab-artifacts" hidden={tab !== "artifacts"}>{tab === "artifacts" && <BuildArtifacts key={job.id} entry={entry} onReveal={() => onReveal("artifact")} />}</div>
     <div className="build-tab-panel" id="build-panel-log" role="tabpanel" aria-labelledby="build-tab-log" hidden={tab !== "log"}>
     <div className="build-log-heading"><span>实时日志 <small>最近 64 KiB</small></span><button className="button" onClick={() => onReveal("log")}>日志文件</button>{result && <button className="button" onClick={() => onReveal("artifact")}>产物目录</button>}</div>
@@ -53,7 +54,7 @@ export function BuildTaskDetails({ entry, onCancel, onReveal }: { entry: BuildJo
   </section>;
 }
 
-export function WorkbenchPage() {
+export function WorkbenchPage({ visible = true }: { visible?: boolean }) {
   const [known, setKnown] = useState<string[]>([]);
   const [workspace, setWorkspace] = useState("");
   const [capabilities, setCapabilities] = useState<BuildCapabilities | null>(null);
@@ -117,13 +118,16 @@ export function WorkbenchPage() {
   }, [capabilities, target, requestKey]);
 
   useEffect(() => {
-    if (!capabilities) return;
+    // Navigation hides this page without disconnecting CBT. Resume with the
+    // retained UI immediately, then refresh live records without clearing it.
+    if (!capabilities || !visible) return;
     let current = true; let pending = false;
     const refresh = async () => {
       if (pending) return;
       pending = true;
       try {
         const value = unwrap(await window.crownHost.workbench.history(capabilities.workspace));
+        if (!current) return;
         const id = selection.current || value.jobs[0]?.job.id || "";
         const detail = id ? unwrap(await window.crownHost.workbench.job(capabilities.workspace, id)) : null;
         if (!current) return;
@@ -135,7 +139,7 @@ export function WorkbenchPage() {
     };
     void refresh(); const timer = window.setInterval(() => void refresh(), 1500);
     return () => { current = false; window.clearInterval(timer); };
-  }, [capabilities, selectedId]);
+  }, [capabilities, selectedId, visible]);
 
   const start = async (operation: "build" | "run") => {
     setBusy("starting"); setError(""); setConfirmRun(false);
@@ -161,8 +165,8 @@ export function WorkbenchPage() {
     catch (cause) { setError(message(cause)); }
     finally { setLoadingProjects(false); }
   };
-  return <main className="workbench-page" lang="zh-CN">
-    <header className="page-heading"><div><h1>构建工作台</h1><p>管理工作区、构建配置与结果，由 CBT 驱动。</p></div><span className="build-engine-tag">Crown Build Tool</span></header>
+  return <main className="launcher-page workbench-page" lang="zh-CN">
+    <PageHeading title="构建工作台" description="管理工作区、构建配置与结果，由 CBT 驱动。" actions={<span className="build-engine-tag">Crown Build Tool</span>} />
     <div className="build-workspace"><FolderIcon /><input className="text-field" aria-label="源码工作区" list="build-workspaces" placeholder="选择 CrownEngine 源码工作区…" value={workspace} disabled={Boolean(busy)} onChange={event => setWorkspace(event.target.value)} /><datalist id="build-workspaces">{known.map(root => <option key={root} value={root} />)}</datalist><button className="button" disabled={Boolean(busy)} onClick={() => void window.crownHost.workbench.chooseWorkspace().then(result => { const root = unwrap(result); if (root) { setWorkspace(root); void connect(root); } }).catch(cause => setError(message(cause)))}>浏览</button><button className="button" disabled={Boolean(busy) || !workspace.trim()} onClick={() => void connect(workspace)}><RefreshIcon />{busy === "connecting" ? "连接中…" : capabilities ? "重新连接" : "连接"}</button></div>
     {error && <div className="build-error" role="alert">{error}<button aria-label="关闭构建错误提示" onClick={() => setError("")}>×</button></div>}
     {pollError && <div className="build-error" role="alert">无法更新任务状态，当前显示的信息可能已过时。{ "\n" }{pollError}</div>}
@@ -178,7 +182,7 @@ export function WorkbenchPage() {
         {confirmRun && <div className="build-run-confirm"><p>按当前配置构建并启动 {target}。程序退出后任务才会结束，取消任务也会停止它启动的程序。</p>{capability?.runRequiresProject && <div className="build-run-project"><label htmlFor="build-run-project">运行项目</label>{runProjects.length > 0 && <select className="text-field" aria-label="选择已有项目" value={runProjects.some(project => project.path === runProject) ? runProject : ""} onChange={event => setRunProject(event.target.value)}><option value="">选择已有项目…</option>{runProjects.map(project => <option key={project.path} value={project.path}>{project.name}</option>)}</select>}<input id="build-run-project" className="text-field" value={runProject} placeholder="包含 .crownproject 的项目目录" onChange={event => setRunProject(event.target.value)} /><button className="button" disabled={loadingProjects} onClick={() => void window.crownHost.launcher.chooseDirectory(runProject).then(result => { const directory = unwrap(result); if (directory) setRunProject(directory); }).catch(cause => setError(message(cause)))}>浏览项目…</button><small>使用本次构建的 Editor 打开该项目；不会切换 Launcher 的全局 Editor 设置。</small></div>}{capability && targetWarning(capability) && <p className="target-warning">{targetWarning(capability)}</p>}<button className="button button-accent" disabled={!ready || loadingProjects || Boolean(capability?.runRequiresProject && !runProject.trim())} onClick={() => void start("run")}>开始</button><button className="button" onClick={() => setConfirmRun(false)}>返回</button></div>}
         <p className="build-policy">不会自动运行 Standard 或其他测试。构建与测试结果分别记录。</p>
       </section><section className="build-history"><h2>任务历史 <small>{history.length}</small></h2>{history.length === 0 && <p>此工作区暂无构建记录。</p>}{history.map(item => <button className={`build-history-item ${item.job.id === selectedId ? "selected" : ""}`} key={item.job.id} onClick={() => { setSelectedId(item.job.id); setEntry(item); }}><span><strong>{item.job.target}</strong><small>{item.job.configuration} · {buildOrigins[item.job.origin]}</small></span><i className={`build-status ${item.job.state}`}>{buildStates[item.job.state]}</i></button>)}</section></aside>
-      <BuildTaskDetails entry={entry} onCancel={() => void cancel()} onReveal={item => void reveal(item)} />
+      <BuildTaskDetails entry={entry} visible={visible} onCancel={() => void cancel()} onReveal={item => void reveal(item)} />
     </div>}
     <footer className="build-footer">Launcher 发起的任务在窗口关闭后仍会运行，重新打开此工作区即可继续查看。取消操作仅停止选中的任务。</footer>
   </main>;

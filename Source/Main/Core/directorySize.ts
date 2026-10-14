@@ -6,7 +6,7 @@ export async function calculateDirectorySize(directory: string): Promise<number>
   const root = await normalizeAbsolutePath(directory);
   const rootStat = await lstat(root);
   if (!rootStat.isDirectory()) {
-    throw new Error("The project location is not a directory.");
+    throw new Error("项目位置不是目录。");
   }
 
   let bytes = 0;

@@ -69,8 +69,8 @@ export async function resolveEditorInstall(
       samplesRoot: "",
       displayVersion: "Current",
       error: requested
-        ? `CrownEditor was not found at ${executable}. Update the selected executable or clear the override to enable automatic discovery.`
-        : "CrownEditor was not found beside Launcher or in a nearby CBT build. Choose an Editor executable in Launcher Settings.",
+        ? `未在以下位置找到 CrownEditor：${executable}。请更新可执行文件路径，或清空手动路径以启用自动发现。`
+        : "未在 Launcher 相邻目录或附近的 CBT 构建中找到 CrownEditor，请在 Launcher 设置中选择可执行文件。",
     };
   }
 

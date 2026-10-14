@@ -118,7 +118,7 @@ describe("project details and deletion", () => {
     let broadDeleteAttempted = false;
     await expect(service.deleteProject(projects, async () => {
       broadDeleteAttempted = true;
-    })).rejects.toThrow("too broad");
+    })).rejects.toThrow("受保护目录");
     expect(broadDeleteAttempted).toBe(false);
     await service.removeProject(projects);
 
@@ -203,6 +203,6 @@ describe("project creation", () => {
     expect(buildEditorLaunchArguments(created.root, 42, sample.startupLevel)).toEqual([
       "--project", created.root, "--launcher-pid", "42", "--load", "Assets/Levels/LookDev.level",
     ]);
-    expect(() => buildEditorLaunchArguments(created.root, 42, "../escape.level")).toThrow("safe project-relative path");
+    expect(() => buildEditorLaunchArguments(created.root, 42, "../escape.level")).toThrow("安全的项目内相对路径");
   });
 });

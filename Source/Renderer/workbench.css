@@ -1,6 +1,5 @@
-.workbench-page { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 24px 26px 12px; gap: 18px; font-size: 14px; }
-.workbench-page .page-heading h1 { font-size: 26px; }
-.workbench-page .page-heading p, .build-workspace .button, .build-workspace .text-field, .build-start-actions .button, .build-run-confirm .button, .build-summary > .button, .build-task-heading > .button, .execution-empty .button { font-size: 13px; }
+.workbench-page { font-size: 14px; }
+.build-workspace .button, .build-workspace .text-field, .build-start-actions .button, .build-run-confirm .button, .build-summary > .button, .build-task-heading > .button, .execution-empty .button { font-size: 13px; }
 .build-engine-tag { color: var(--faint); font-size: 12px; border: 1px solid var(--line); border-radius: 20px; padding: 6px 12px; }
 .build-workspace { display: flex; align-items: center; flex-shrink: 0; gap: 9px; }
 .build-workspace > svg { width: 19px; height: 19px; fill: none; stroke: var(--muted); stroke-width: 1.2; }
@@ -137,4 +136,4 @@
 .build-diagnostic pre { max-height: 130px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; background: var(--bg); padding: 10px; border-radius: 6px; }
 .build-diagnostic summary { font-size: 12px; cursor: pointer; }
 @media (max-width: 900px) { .artifact-metrics { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 1120px) { .workbench-page { padding: 20px 16px 10px; gap: 14px; } .build-layout { grid-template-columns: 236px minmax(0, 1fr); gap: 12px; } .build-config-fields, .build-task { padding: 14px; } .build-start-actions, .build-policy, .build-run-confirm { margin-left: 14px; margin-right: 14px; } .build-task-heading { flex-wrap: wrap; } .build-task-heading h2 { font-size: 18px; } .build-evidence { gap: 8px; } .build-log-heading { flex-wrap: wrap; } .build-log-heading > span { flex-basis: 100%; } }
+@media (max-width: 1120px) { .build-layout { grid-template-columns: 236px minmax(0, 1fr); gap: 12px; } .build-config-fields, .build-task { padding: 14px; } .build-start-actions, .build-policy, .build-run-confirm { margin-left: 14px; margin-right: 14px; } .build-task-heading { flex-wrap: wrap; } .build-task-heading h2 { font-size: 18px; } .build-evidence { gap: 8px; } .build-log-heading { flex-wrap: wrap; } .build-log-heading > span { flex-basis: 100%; } }
